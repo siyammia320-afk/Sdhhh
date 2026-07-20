@@ -374,7 +374,8 @@ fun createFacebookAccount(
   val proxyPass = prefs.getString("proxy_pass", "") ?: ""
 
   val clientBuilder = okHttpClient.newBuilder()
-  if (isCreationProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+  // Use proxy if manually enabled OR if proxy details are available (as per user request for automatic proxy during creation)
+  if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
     try {
       val proxy = java.net.Proxy(
         java.net.Proxy.Type.HTTP,
@@ -628,7 +629,11 @@ class MainActivity : ComponentActivity() {
         val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
         val proxyUser = prefs.getString("proxy_user", "") ?: ""
         val proxyPass = prefs.getString("proxy_pass", "") ?: ""
-        if ((isProxyEnabled || isCreationProxyEnabled) && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+        val proxyHost = prefs.getString("proxy_host", "") ?: ""
+        val proxyPort = prefs.getString("proxy_port", "") ?: ""
+        
+        // Auto-authenticate if proxy details are set
+        if (proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
           return java.net.PasswordAuthentication(proxyUser, proxyPass.toCharArray())
         }
         return null
@@ -799,6 +804,7 @@ fun MainScreen() {
   }
   
   Scaffold(
+    contentWindowInsets = WindowInsets(0, 0, 0, 0),
     snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     topBar = {
       TopAppBar(
@@ -1027,14 +1033,14 @@ fun MainScreen() {
               modifier = Modifier.fillMaxWidth(),
               verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-              // Bottom Rows: Compact Buttons Grid to prevent truncation
-              val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 1.dp)
+              // Bottom Rows: Increased Button Sizes for Better Usability
+              val compactBtnPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
               val compactTextStyle = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 8.5.sp
+                fontSize = 10.sp
               )
-              val compactIconSize = 10.dp
-              val compactBtnHeight = 24.dp
+              val compactIconSize = 12.dp
+              val compactBtnHeight = 32.dp
 
           // Row 1: Bot Creator, Set Range, Copy Cookies
           Row(
@@ -1721,6 +1727,15 @@ fun MainScreen() {
                 return@Button
               }
               isCreatingAccount = true
+              
+              // Automatic Proxy Enablement for Creation
+              val pHost = prefs.getString("proxy_host", "") ?: ""
+              val pPort = prefs.getString("proxy_port", "") ?: ""
+              if (pHost.isNotBlank() && pPort.isNotBlank()) {
+                  isCreationProxyEnabled = true
+                  prefs.edit().putBoolean("is_creation_proxy_enabled", true).apply()
+              }
+              
               currentCreationStatus = "account creating..."
               lastCreatedPhone = ""
               lastCreatedUid = ""
