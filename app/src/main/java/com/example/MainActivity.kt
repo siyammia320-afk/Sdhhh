@@ -53,6 +53,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -142,8 +144,8 @@ fun applyWebViewProxy(context: Context, enabled: Boolean, host: String, port: St
   if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
     if (enabled && host.isNotBlank() && port.isNotBlank()) {
       val proxyConfig = ProxyConfig.Builder()
-        .addProxyRule("http://$host:$port")
-        .addProxyRule("https://$host:$port")
+        .addProxyRule("http://$host:$port", "http")
+        .addProxyRule("http://$host:$port", "https")
         .addDirect()
         .build()
       try {
@@ -622,14 +624,12 @@ class MainActivity : ComponentActivity() {
     val prefs = getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
     java.net.Authenticator.setDefault(object : java.net.Authenticator() {
       override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-        if (requestorType == RequestorType.PROXY) {
-          val isProxyEnabled = prefs.getBoolean("is_proxy_enabled", false)
-          val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
-          val proxyUser = prefs.getString("proxy_user", "") ?: ""
-          val proxyPass = prefs.getString("proxy_pass", "") ?: ""
-          if ((isProxyEnabled || isCreationProxyEnabled) && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
-            return java.net.PasswordAuthentication(proxyUser, proxyPass.toCharArray())
-          }
+        val isProxyEnabled = prefs.getBoolean("is_proxy_enabled", false)
+        val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
+        val proxyUser = prefs.getString("proxy_user", "") ?: ""
+        val proxyPass = prefs.getString("proxy_pass", "") ?: ""
+        if ((isProxyEnabled || isCreationProxyEnabled) && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+          return java.net.PasswordAuthentication(proxyUser, proxyPass.toCharArray())
         }
         return null
       }
@@ -715,6 +715,7 @@ fun MainScreen() {
   var proxyUser by remember { mutableStateOf(prefs.getString("proxy_user", "") ?: "") }
   var proxyPass by remember { mutableStateOf(prefs.getString("proxy_pass", "") ?: "") }
   var showProxyConfigDialog by remember { mutableStateOf(false) }
+  var isPanelExpanded by remember { mutableStateOf(prefs.getBoolean("is_panel_expanded", false)) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
 
 
@@ -841,7 +842,7 @@ fun MainScreen() {
     },
     bottomBar = {
       Surface(
-        tonalElevation = 6.dp,
+        tonalElevation = 4.dp,
         modifier = Modifier
           .fillMaxWidth()
           .navigationBarsPadding()
@@ -849,8 +850,8 @@ fun MainScreen() {
         Column(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-          verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 6.dp, vertical = 3.dp),
+          verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
           // Top Row: Navigation on left, Refresh and Clear Data on right
           Row(
@@ -860,45 +861,45 @@ fun MainScreen() {
           ) {
             // Navigation Group (Back, Forward, Home)
             Row(
-              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
               IconButton(
                 onClick = { webView?.goBack() },
                 enabled = canGoBack,
                 modifier = Modifier
-                  .size(36.dp)
+                  .size(28.dp)
                   .testTag("back_button")
               ) {
                 Icon(
                   imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                   contentDescription = "পেছনে",
-                  modifier = Modifier.size(20.dp)
+                  modifier = Modifier.size(16.dp)
                 )
               }
               IconButton(
                 onClick = { webView?.goForward() },
                 enabled = canGoForward,
                 modifier = Modifier
-                  .size(36.dp)
+                  .size(28.dp)
                   .testTag("forward_button")
               ) {
                 Icon(
                   imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                   contentDescription = "সামনে",
-                  modifier = Modifier.size(20.dp)
+                  modifier = Modifier.size(16.dp)
                 )
               }
               IconButton(
                 onClick = {
                   webView?.loadUrl(a.b1())
                 },
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
               ) {
                 Icon(
                   imageVector = Icons.Default.Home,
                   contentDescription = "হোম",
-                  modifier = Modifier.size(20.dp),
+                  modifier = Modifier.size(16.dp),
                   tint = MaterialTheme.colorScheme.onSurface
                 )
               }
@@ -906,7 +907,7 @@ fun MainScreen() {
 
             // Compact Actions Group (Reload, Clear Data)
             Row(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
               // Small Reload Button
@@ -916,22 +917,24 @@ fun MainScreen() {
                   containerColor = MaterialTheme.colorScheme.secondaryContainer,
                   contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(4.dp),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                 modifier = Modifier
+                  .height(25.dp)
                   .testTag("reload_button")
               ) {
                 Row(
                   verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                   Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = "রিলোড",
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(12.dp)
                   )
                   Text(
                     text = "রিলোড",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                   )
                 }
               }
@@ -977,36 +980,61 @@ fun MainScreen() {
                   containerColor = MaterialTheme.colorScheme.errorContainer,
                   contentColor = MaterialTheme.colorScheme.onErrorContainer
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(4.dp),
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                 modifier = Modifier
+                  .height(25.dp)
                   .testTag("clear_data_button")
               ) {
                 Row(
                   verticalAlignment = Alignment.CenterVertically,
-                  horizontalArrangement = Arrangement.spacedBy(4.dp)
+                  horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                   Icon(
                     imageVector = Icons.Default.DeleteSweep,
                     contentDescription = "ডাটা মুছুন",
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(12.dp)
                   )
                   Text(
                     text = "ডাটা মুছুন",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold)
                   )
                 }
+              }
+
+              // Expand/Collapse Toggle Button
+              IconButton(
+                onClick = {
+                  isPanelExpanded = !isPanelExpanded
+                  prefs.edit().putBoolean("is_panel_expanded", isPanelExpanded).apply()
+                },
+                modifier = Modifier.size(25.dp)
+              ) {
+                Icon(
+                  imageVector = if (isPanelExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                  contentDescription = "মেনু দেখান/লুকান",
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(20.dp)
+                )
               }
             }
           }
 
-          // Bottom Rows: Compact Buttons Grid to prevent truncation
-          val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
-          val compactTextStyle = MaterialTheme.typography.labelMedium.copy(
-            fontWeight = FontWeight.Bold,
-            fontSize = 9.5.sp
-          )
-          val compactIconSize = 12.dp
-          val compactBtnHeight = 30.dp
+          AnimatedVisibility(
+            visible = isPanelExpanded
+          ) {
+            Column(
+              modifier = Modifier.fillMaxWidth(),
+              verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+              // Bottom Rows: Compact Buttons Grid to prevent truncation
+              val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 1.dp)
+              val compactTextStyle = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 8.5.sp
+              )
+              val compactIconSize = 10.dp
+              val compactBtnHeight = 24.dp
 
           // Row 1: Bot Creator, Set Range, Copy Cookies
           Row(
@@ -1320,7 +1348,7 @@ fun MainScreen() {
             // Whoer IP Button
             Button(
               onClick = {
-                webView?.loadUrl("http://whoer.net/")
+                webView?.loadUrl("https://whoer.net/")
               },
               colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
@@ -1465,6 +1493,8 @@ fun MainScreen() {
                   overflow = TextOverflow.Ellipsis
                 )
               }
+            }
+          }
             }
           }
         }
