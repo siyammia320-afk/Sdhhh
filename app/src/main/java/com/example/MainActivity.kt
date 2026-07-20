@@ -14,6 +14,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
+import androidx.webkit.WebViewFeature
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -133,6 +136,39 @@ private fun incrementTodayOtpCount(context: Context) {
     .putString("last_date", todayStr)
     .putInt("otp_count", currentCount + 1)
     .apply()
+}
+
+fun applyWebViewProxy(context: Context, enabled: Boolean, host: String, port: String) {
+  if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+    if (enabled && host.isNotBlank() && port.isNotBlank()) {
+      val proxyUrl = "http://$host:$port"
+      val proxyConfig = ProxyConfig.Builder()
+        .addProxyRule(proxyUrl)
+        .addDirect()
+        .build()
+      try {
+        val executor = java.util.concurrent.Executor { command -> 
+          android.os.Handler(android.os.Looper.getMainLooper()).post(command) 
+        }
+        ProxyController.getInstance().setProxyOverride(proxyConfig, executor, Runnable {
+          // Success callback
+        })
+      } catch (e: Exception) {
+        e.printStackTrace()
+      }
+    } else {
+      try {
+        val executor = java.util.concurrent.Executor { command -> 
+          android.os.Handler(android.os.Looper.getMainLooper()).post(command) 
+        }
+        ProxyController.getInstance().clearProxyOverride(executor, Runnable {
+          // Cleared callback
+        })
+      } catch (e: Exception) {
+        e.printStackTrace()
+      }
+    }
+  }
 }
 
 // Save to SharedPreferences history
@@ -322,11 +358,41 @@ fun fetchNumber(rangeCode: String, onSuccess: (String) -> Unit, onFailure: (Stri
 
 // Create actual Facebook account via submit reg
 fun createFacebookAccount(
+  context: Context,
   phone: String,
   passwordInput: String,
   onSuccess: (uid: String, name: String, cookies: String) -> Unit,
   onFailure: (String) -> Unit
 ) {
+  val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
+  val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
+  val proxyHost = prefs.getString("proxy_host", "") ?: ""
+  val proxyPort = prefs.getString("proxy_port", "") ?: ""
+  val proxyUser = prefs.getString("proxy_user", "") ?: ""
+  val proxyPass = prefs.getString("proxy_pass", "") ?: ""
+
+  val clientBuilder = okHttpClient.newBuilder()
+  if (isCreationProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+    try {
+      val proxy = java.net.Proxy(
+        java.net.Proxy.Type.HTTP,
+        java.net.InetSocketAddress(proxyHost, proxyPort.toInt())
+      )
+      clientBuilder.proxy(proxy)
+      if (proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+        clientBuilder.proxyAuthenticator(okhttp3.Authenticator { _, response ->
+          val credential = okhttp3.Credentials.basic(proxyUser, proxyPass)
+          response.request.newBuilder()
+            .header("Proxy-Authorization", credential)
+            .build()
+        })
+      }
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+  }
+  val activeClient = clientBuilder.build()
+
   val firstNames = listOf("Jean", "Marie", "Pierre", "Sophie", "Lucas", "Emma", "Louis", "Chloé", "Hugo", "Inès")
   val lastNames = listOf("Dupont", "Martin", "Durand", "Lefèvre", "Moreau", "Petit", "Roux", "Richard", "Simon", "Laurent")
   
@@ -416,7 +482,7 @@ fun createFacebookAccount(
     .post(formBody)
     .build()
 
-  okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
+  activeClient.newCall(request).enqueue(object : okhttp3.Callback {
     override fun onFailure(call: okhttp3.Call, e: IOException) {
       onFailure(e.message ?: "Account creation failed due to network error")
     }
@@ -622,6 +688,15 @@ fun MainScreen() {
   var lastCreatedUid by remember { mutableStateOf("") }
   var lastCreatedCookies by remember { mutableStateOf("") }
   var lastCreatedOtp by remember { mutableStateOf("") }
+
+  // Proxy state variables
+  var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_proxy_enabled", false)) }
+  var isCreationProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_creation_proxy_enabled", false)) }
+  var proxyHost by remember { mutableStateOf(prefs.getString("proxy_host", "") ?: "") }
+  var proxyPort by remember { mutableStateOf(prefs.getString("proxy_port", "") ?: "") }
+  var proxyUser by remember { mutableStateOf(prefs.getString("proxy_user", "") ?: "") }
+  var proxyPass by remember { mutableStateOf(prefs.getString("proxy_pass", "") ?: "") }
+  var showProxyConfigDialog by remember { mutableStateOf(false) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
 
 
@@ -1272,6 +1347,79 @@ fun MainScreen() {
               }
             }
           }
+
+          // Row 6: Proxy Toggle & Config
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            // Proxy Toggle Button
+            Button(
+              onClick = {
+                isProxyEnabled = !isProxyEnabled
+                prefs.edit().putBoolean("is_proxy_enabled", isProxyEnabled).apply()
+                applyWebViewProxy(context, isProxyEnabled, proxyHost, proxyPort)
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = if (isProxyEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = if (isProxyEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+              ),
+              shape = RoundedCornerShape(8.dp),
+              contentPadding = compactBtnPadding,
+              modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.VpnKey,
+                  contentDescription = "Proxy Toggle",
+                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                )
+                Text(
+                  text = if (isProxyEnabled) "Proxy: ON" else "Proxy: OFF",
+                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
+
+            // Proxy Config Button
+            Button(
+              onClick = { showProxyConfigDialog = true },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+              ),
+              shape = RoundedCornerShape(8.dp),
+              contentPadding = compactBtnPadding,
+              modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Settings,
+                  contentDescription = "Proxy Config",
+                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                )
+                Text(
+                  text = "Proxy Config",
+                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
+          }
         }
       }
     }
@@ -1335,7 +1483,24 @@ fun MainScreen() {
               cookieManager.setAcceptCookie(true)
               cookieManager.setAcceptThirdPartyCookies(this, true)
 
+              if (isProxyEnabled) {
+                applyWebViewProxy(context, true, proxyHost, proxyPort)
+              }
+
               webViewClient = object : WebViewClient() {
+                override fun onReceivedHttpAuthRequest(
+                  view: WebView?,
+                  handler: android.webkit.HttpAuthHandler?,
+                  host: String?,
+                  realm: String?
+                ) {
+                  if (isProxyEnabled && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+                    handler?.proceed(proxyUser, proxyPass)
+                  } else {
+                    super.onReceivedHttpAuthRequest(view, handler, host, realm)
+                  }
+                }
+
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                   super.onPageStarted(view, url, favicon)
                   isLoading = true
@@ -1491,10 +1656,13 @@ fun MainScreen() {
                   scope.launch {
                     lastCreatedPhone = phoneNumber
                     createFacebookAccount(
+                      context = context,
                       phone = phoneNumber,
                       passwordInput = customPassword,
                       onSuccess = { uid, name, cookies ->
                         scope.launch {
+                          isCreationProxyEnabled = false
+                          prefs.edit().putBoolean("is_creation_proxy_enabled", false).apply()
                           lastCreatedUid = uid
                           lastCreatedCookies = cookies
                           currentCreationStatus = "create success"
@@ -1554,6 +1722,8 @@ fun MainScreen() {
                       },
                       onFailure = { errorMsg ->
                         scope.launch {
+                          isCreationProxyEnabled = false
+                          prefs.edit().putBoolean("is_creation_proxy_enabled", false).apply()
                           currentCreationStatus = "create failed"
                           saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
                           isCreatingAccount = false
@@ -2013,6 +2183,113 @@ fun MainScreen() {
       confirmButton = {
         TextButton(onClick = { showHistoryDialog = false }) {
           Text("বন্ধ করুন")
+        }
+      }
+    )
+  }
+
+  // Proxy Config Dialog
+  if (showProxyConfigDialog) {
+    var hostInput by remember { mutableStateOf(proxyHost) }
+    var portInput by remember { mutableStateOf(proxyPort) }
+    var userInput by remember { mutableStateOf(proxyUser) }
+    var passInput by remember { mutableStateOf(proxyPass) }
+    var isCreationProxyChecked by remember { mutableStateOf(isCreationProxyEnabled) }
+
+    AlertDialog(
+      onDismissRequest = { showProxyConfigDialog = false },
+      title = { Text("Proxy Settings") },
+      text = {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+          OutlinedTextField(
+            value = hostInput,
+            onValueChange = { hostInput = it },
+            label = { Text("Server Change/Host") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+          )
+
+          OutlinedTextField(
+            value = portInput,
+            onValueChange = { portInput = it },
+            label = { Text("Port") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+          )
+
+          OutlinedTextField(
+            value = userInput,
+            onValueChange = { userInput = it },
+            label = { Text("Username") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+          )
+
+          OutlinedTextField(
+            value = passInput,
+            onValueChange = { passInput = it },
+            label = { Text("Password") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+          )
+
+          // "ক্রিয়েশনের জন্য প্রক্সি" setting
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clickable { isCreationProxyChecked = !isCreationProxyChecked }
+              .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Column(modifier = Modifier.weight(1f)) {
+              Text("ক্রিয়েশনের জন্য প্রক্সি", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+              Text("অ্যাকাউন্ট তৈরি করার সময় এই প্রক্সি ব্যবহার করা হবে।", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(
+              checked = isCreationProxyChecked,
+              onCheckedChange = { isCreationProxyChecked = it }
+            )
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            proxyHost = hostInput.trim()
+            proxyPort = portInput.trim()
+            proxyUser = userInput.trim()
+            proxyPass = passInput.trim()
+            isCreationProxyEnabled = isCreationProxyChecked
+
+            prefs.edit()
+              .putString("proxy_host", proxyHost)
+              .putString("proxy_port", proxyPort)
+              .putString("proxy_user", proxyUser)
+              .putString("proxy_pass", proxyPass)
+              .putBoolean("is_creation_proxy_enabled", isCreationProxyEnabled)
+              .apply()
+
+            // Apply to WebView if enabled
+            if (isProxyEnabled) {
+              applyWebViewProxy(context, true, proxyHost, proxyPort)
+            }
+
+            showProxyConfigDialog = false
+            scope.launch { snackbarHostState.showSnackbar("Proxy settings saved successfully!") }
+          }
+        ) {
+          Text("সংরক্ষণ করুন (Save)")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showProxyConfigDialog = false }) {
+          Text("বাতিল (Cancel)")
         }
       }
     )
