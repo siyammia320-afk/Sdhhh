@@ -1,5 +1,8 @@
 package com.example
 
+import com.example.ui.theme.font.ActivationBarrier
+import com.example.ui.theme.font.LiveCkDialog
+import com.example.ui.theme.font.MenuDialog
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
@@ -30,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -38,6 +42,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
@@ -516,11 +521,12 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     a.c(this)
-    qk.startChecking(this)
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        MainScreen()
+        ActivationBarrier {
+          MainScreen()
+        }
       }
     }
   }
@@ -549,9 +555,6 @@ fun MainScreen() {
   LaunchedEffect(Unit) {
     while (true) {
       a.c(context)
-      if (!a.s1()) {
-        exitProcess(0)
-      }
       kotlinx.coroutines.delay(5000)
     }
   }
@@ -574,6 +577,8 @@ fun MainScreen() {
   var showCookieLoginDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
+  var showLiveCkDialog by remember { mutableStateOf(false) }
+  var showMenuDialog by remember { mutableStateOf(false) }
   var isAndroidIdEnabled by remember { mutableStateOf(true) }
   var dnsServer by remember { mutableStateOf("8.8.8.8") }
   
@@ -1185,48 +1190,88 @@ fun MainScreen() {
             }
           }
 
-          // Row 2: OTP History Action Button
-          /*
+          // Row 5: LIVE CK and MENU Buttons
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
-            // OTP History Dialog Button
+            // LIVE CK Button
             Button(
-              onClick = {
-                showHistoryDialog = true
-              },
-              contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+              onClick = { showLiveCkDialog = true },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+              ),
+              shape = RoundedCornerShape(8.dp),
+              contentPadding = compactBtnPadding,
+              modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+                .testTag("live_ck_button")
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.CheckCircle,
+                  contentDescription = "LIVE CK",
+                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                )
+                Text(
+                  text = "LIVE CK",
+                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold),
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
+
+            // MENU Button
+            Button(
+              onClick = { showMenuDialog = true },
               colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.onSecondary
               ),
               shape = RoundedCornerShape(8.dp),
+              contentPadding = compactBtnPadding,
               modifier = Modifier
+                .weight(1f)
                 .height(36.dp)
-                .fillMaxWidth()
-                .testTag("otp_history_button_main")
+                .testTag("menu_button")
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.Center
               ) {
                 Icon(
-                  imageVector = Icons.Default.History,
-                  contentDescription = "ওটিপি ইতিহাস",
-                  modifier = Modifier.size(16.dp)
+                  imageVector = Icons.Default.Menu,
+                  contentDescription = "MENU",
+                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
                 )
                 Text(
-                  text = "ওটিপি হিস্টোরি",
-                  style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                  text = "MENU",
+                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold),
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
               }
             }
           }
-          */
+
+          if (showLiveCkDialog) {
+            LiveCkDialog(onDismiss = { showLiveCkDialog = false })
+          }
+
+          if (showMenuDialog) {
+            MenuDialog(
+              webViewUrl = webView?.url ?: currentUrl,
+              lastCreatedCookies = lastCreatedCookies,
+              onDismiss = { showMenuDialog = false }
+            )
+          }
         }
       }
     }
