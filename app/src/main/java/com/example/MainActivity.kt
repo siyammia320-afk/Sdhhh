@@ -107,6 +107,34 @@ private val okHttpClient = OkHttpClient.Builder()
   .readTimeout(15, TimeUnit.SECONDS)
   .build()
 
+private fun getTodayOtpCount(context: Context): Int {
+  val prefs = context.getSharedPreferences("otp_counter_prefs", Context.MODE_PRIVATE)
+  val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+  val todayStr = sdf.format(Date())
+  val savedDate = prefs.getString("last_date", "")
+  if (savedDate != todayStr) {
+    prefs.edit().putString("last_date", todayStr).putInt("otp_count", 0).apply()
+    return 0
+  }
+  return prefs.getInt("otp_count", 0)
+}
+
+private fun incrementTodayOtpCount(context: Context) {
+  val prefs = context.getSharedPreferences("otp_counter_prefs", Context.MODE_PRIVATE)
+  val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
+  val todayStr = sdf.format(Date())
+  val savedDate = prefs.getString("last_date", "")
+  val currentCount = if (savedDate == todayStr) {
+    prefs.getInt("otp_count", 0)
+  } else {
+    0
+  }
+  prefs.edit()
+    .putString("last_date", todayStr)
+    .putInt("otp_count", currentCount + 1)
+    .apply()
+}
+
 // Save to SharedPreferences history
 private fun saveAccountToHistory(context: Context, phone: String, uid: String, cookies: String, password: String, otp: String) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
@@ -618,6 +646,7 @@ fun MainScreen() {
           onSuccess = { otp, msg ->
             clipboardManager.setText(AnnotatedString(otp))
             updateOtpInHistory(context, activePhoneChecking, otp)
+            incrementTodayOtpCount(context)
             lastCreatedOtp = otp
             scope.launch {
               snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে কপি করা হয়েছে: $otp")
@@ -1796,28 +1825,43 @@ fun MainScreen() {
               style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
           }
-
-          IconButton(
-            onClick = {
-              clearHistory(context)
-              historyItems.value = emptyList()
-              scope.launch { snackbarHostState.showSnackbar("ইতিহাস মুছে ফেলা হয়েছে!") }
-            }
-          ) {
-            Icon(
-              imageVector = Icons.Default.DeleteSweep,
-              contentDescription = "সব মুছুন",
-              tint = MaterialTheme.colorScheme.error
-            )
-          }
         }
       },
       text = {
-        Box(
-          modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 400.dp)
+        Column(
+          modifier = Modifier.fillMaxWidth(),
+          verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+          // Total OTP today display
+          val todayOtpCount = remember { getTodayOtpCount(context) }
+          Card(
+            colors = CardDefaults.cardColors(
+              containerColor = MaterialTheme.colorScheme.primaryContainer
+            ),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Row(
+              modifier = Modifier.padding(12.dp),
+              horizontalArrangement = Arrangement.Center,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(
+                text = "Total otp $todayOtpCount",
+                style = MaterialTheme.typography.titleMedium.copy(
+                  fontWeight = FontWeight.Bold,
+                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+              )
+            }
+          }
+
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(max = 330.dp)
+          ) {
           if (historyItems.value.isEmpty()) {
             Box(
               modifier = Modifier.fillMaxSize(),
@@ -1860,23 +1904,6 @@ fun MainScreen() {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                       )
-
-                      // Individual Delete Button
-                      IconButton(
-                        onClick = {
-                          deleteItemFromHistory(context, item)
-                          historyItems.value = getHistory(context)
-                          scope.launch { snackbarHostState.showSnackbar("রেকর্ড মুছে ফেলা হয়েছে!") }
-                        },
-                        modifier = Modifier.size(24.dp)
-                      ) {
-                        Icon(
-                          imageVector = Icons.Default.Delete,
-                          contentDescription = "রেকর্ড মুছুন",
-                          tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                          modifier = Modifier.size(16.dp)
-                        )
-                      }
                     }
 
                     Text(
@@ -1980,6 +2007,7 @@ fun MainScreen() {
               }
             }
           }
+        }
         }
       },
       confirmButton = {

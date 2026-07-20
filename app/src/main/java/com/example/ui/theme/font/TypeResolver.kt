@@ -3,11 +3,14 @@ package com.example.ui.theme.font
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -175,29 +178,6 @@ fun ActivationBarrier(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // User Name Input Field
-                        OutlinedTextField(
-                            value = userName,
-                            onValueChange = { newValue ->
-                                userName = newValue
-                                prefs.edit().putString("user_activation_name", newValue).apply()
-                            },
-                            label = { Text("আপনার নাম লিখুন (Your Name)", color = Color.LightGray) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF38BDF8),
-                                unfocusedBorderColor = Color(0xFF334155),
-                                focusedLabelColor = Color(0xFF38BDF8),
-                                unfocusedLabelColor = Color.LightGray
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 12.dp)
-                        )
-
                         Text(
                             text = "আপনার ডিভাইস আইডি (Device ID):",
                             color = Color.White,
@@ -233,15 +213,9 @@ fun ActivationBarrier(
                         Button(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clipText = if (userName.isNotBlank()) {
-                                    "Name: $userName\nDevice ID: $deviceId"
-                                } else {
-                                    deviceId
-                                }
-                                val clip = ClipData.newPlainText("Device ID", clipText)
+                                val clip = ClipData.newPlainText("Device ID", deviceId)
                                 clipboard.setPrimaryClip(clip)
-                                val toastMsg = if (userName.isNotBlank()) "নাম এবং ডিভাইস আইডি কপি করা হয়েছে!" else "ডিভাইস আইডি কপি করা হয়েছে!"
-                                Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(8.dp),
@@ -258,7 +232,7 @@ fun ActivationBarrier(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "নাম ও ডিভাইস আইডি কপি করুন",
+                                    text = "ডিভাইস আইডি কপি করুন",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -269,30 +243,90 @@ fun ActivationBarrier(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Instructions Card
+                // Admin Contact Card
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "ব্যবহারের নিয়মাবলী:",
+                            text = "অ্যাডমিন যোগাযোগ (Admin Contact)",
                             color = Color.White,
-                            fontSize = 13.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "১. উপরের বাটনটিতে চাপ দিয়ে আপনার ডিভাইস আইডিটি কপি করুন।\n" +
-                                    "২. আইডিটি অ্যাডমিনকে পাঠিয়ে আপনার অ্যাকাউন্ট এক্টিভেট করুন।\n" +
-                                    "৩. অ্যাডমিন আইডি এক্টিভেট করার পর নিচের 'ভেরিফাই করুন' বাটনে চাপুন।",
-                            color = Color.LightGray,
-                            fontSize = 12.sp,
-                            lineHeight = 18.sp
-                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // WhatsApp Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/8801912953085"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "WhatsApp ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "💬 WhatsApp:",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "+8801912953085",
+                                color = Color(0xFF4ADE80), // Green
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(10.dp))
+                        
+                        // Telegram Row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0F172A), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Arafat_bhai1"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Telegram ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "✈️ Telegram:",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "@Arafat_bhai1",
+                                color = Color(0xFF38BDF8), // Blue
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
