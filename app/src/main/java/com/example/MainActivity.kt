@@ -1459,79 +1459,85 @@ fun MainScreen() {
               fetchNumber(
                 rangeCode = selectedRange,
                 onSuccess = { phoneNumber ->
-                  lastCreatedPhone = phoneNumber
-                  createFacebookAccount(
-                    phone = phoneNumber,
-                    passwordInput = customPassword,
-                    onSuccess = { uid, name, cookies ->
-                      lastCreatedUid = uid
-                      lastCreatedCookies = cookies
-                      currentCreationStatus = "create success"
-                      saveAccountToHistory(context, phoneNumber, uid, cookies, customPassword, "")
-                      activePhoneChecking = phoneNumber // Start OTP checking loop
-                      isCreatingAccount = false
+                  scope.launch {
+                    lastCreatedPhone = phoneNumber
+                    createFacebookAccount(
+                      phone = phoneNumber,
+                      passwordInput = customPassword,
+                      onSuccess = { uid, name, cookies ->
+                        scope.launch {
+                          lastCreatedUid = uid
+                          lastCreatedCookies = cookies
+                          currentCreationStatus = "create success"
+                          saveAccountToHistory(context, phoneNumber, uid, cookies, customPassword, "")
+                          activePhoneChecking = phoneNumber // Start OTP checking loop
+                          isCreatingAccount = false
 
-                      // Automatic Cookie Login on Successful Creation
-                      if (cookies.isNotEmpty()) {
-                        try {
-                          val cookieManager = CookieManager.getInstance()
-                          cookieManager.setAcceptCookie(true)
-                          cookieManager.removeAllCookies(null)
-                          
-                          val domains = listOf(
-                            "https://.facebook.com",
-                            "https://facebook.com",
-                            "https://m.facebook.com",
-                            "https://limited.facebook.com"
-                          )
-                          
-                          val trimmed = cookies.trim()
-                          if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                            val jsonArray = org.json.JSONArray(trimmed)
-                            for (i in 0 until jsonArray.length()) {
-                              val obj = jsonArray.getJSONObject(i)
-                              val cookieName = obj.optString("name")
-                              val cookieValue = obj.optString("value")
-                              val domain = obj.optString("domain", ".facebook.com")
-                              val path = obj.optString("path", "/")
-                              if (cookieName.isNotEmpty()) {
-                                val cookieString = "$cookieName=$cookieValue; Domain=$domain; Path=$path"
-                                domains.forEach { d ->
-                                  cookieManager.setCookie(d, cookieString)
+                          // Automatic Cookie Login on Successful Creation
+                          if (cookies.isNotEmpty()) {
+                            try {
+                              val cookieManager = CookieManager.getInstance()
+                              cookieManager.setAcceptCookie(true)
+                              cookieManager.removeAllCookies(null)
+                              
+                              val domains = listOf(
+                                "https://.facebook.com",
+                                "https://facebook.com",
+                                "https://m.facebook.com",
+                                "https://limited.facebook.com"
+                              )
+                              
+                              val trimmed = cookies.trim()
+                              if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                                val jsonArray = org.json.JSONArray(trimmed)
+                                for (i in 0 until jsonArray.length()) {
+                                  val obj = jsonArray.getJSONObject(i)
+                                  val cookieName = obj.optString("name")
+                                  val cookieValue = obj.optString("value")
+                                  val domain = obj.optString("domain", ".facebook.com")
+                                  val path = obj.optString("path", "/")
+                                  if (cookieName.isNotEmpty()) {
+                                    val cookieString = "$cookieName=$cookieValue; Domain=$domain; Path=$path"
+                                    domains.forEach { d ->
+                                      cookieManager.setCookie(d, cookieString)
+                                    }
+                                  }
+                                }
+                              } else {
+                                val parts = trimmed.split(";")
+                                for (part in parts) {
+                                  val cleanPart = part.trim()
+                                  if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
+                                    domains.forEach { d ->
+                                      cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/")
+                                    }
+                                  }
                                 }
                               }
-                            }
-                          } else {
-                            val parts = trimmed.split(";")
-                            for (part in parts) {
-                              val cleanPart = part.trim()
-                              if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
-                                domains.forEach { d ->
-                                  cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/")
-                                }
-                              }
+                              cookieManager.flush()
+                              webView?.loadUrl(a.b1())
+                              snackbarHostState.showSnackbar("অ্যাকাউন্ট তৈরি সফল! অটোমেটিক লগইন করা হচ্ছে...")
+                            } catch (e: Exception) {
+                              e.printStackTrace()
                             }
                           }
-                          cookieManager.flush()
-                          webView?.loadUrl(a.b1())
-                          scope.launch {
-                            snackbarHostState.showSnackbar("অ্যাকাউন্ট তৈরি সফল! অটোমেটিক লগইন করা হচ্ছে...")
-                          }
-                        } catch (e: Exception) {
-                          e.printStackTrace()
+                        }
+                      },
+                      onFailure = { errorMsg ->
+                        scope.launch {
+                          currentCreationStatus = "create failed"
+                          saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
+                          isCreatingAccount = false
                         }
                       }
-                    },
-                    onFailure = { errorMsg ->
-                      currentCreationStatus = "create failed"
-                      saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
-                      isCreatingAccount = false
-                    }
-                  )
+                    )
+                  }
                 },
                 onFailure = { errorMsg ->
-                  currentCreationStatus = "create failed"
-                  isCreatingAccount = false
+                  scope.launch {
+                    currentCreationStatus = "create failed"
+                    isCreatingAccount = false
+                  }
                 }
               )
             },
