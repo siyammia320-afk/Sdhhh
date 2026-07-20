@@ -48,6 +48,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.Smartphone
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -577,8 +579,7 @@ fun MainScreen() {
   var showCookieLoginDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
-  var showLiveCkDialog by remember { mutableStateOf(false) }
-  var showMenuDialog by remember { mutableStateOf(false) }
+  var isDesktopMode by remember { mutableStateOf(prefs.getBoolean("is_desktop_mode", false)) }
   var isAndroidIdEnabled by remember { mutableStateOf(true) }
   var dnsServer by remember { mutableStateOf("8.8.8.8") }
   
@@ -830,8 +831,12 @@ fun MainScreen() {
                     wv.clearFormData()
                     wv.clearHistory()
 
-                    // 3. Change useragent to a random mobile one
-                    wv.settings.userAgentString = getRandomMobileUserAgent()
+                    // 3. Change useragent based on desktop mode setting
+                    if (isDesktopMode) {
+                      wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    } else {
+                      wv.settings.userAgentString = getRandomMobileUserAgent()
+                    }
 
                     // 4. Reload facebook limited
                     wv.loadUrl(a.b1())
@@ -1190,87 +1195,53 @@ fun MainScreen() {
             }
           }
 
-          // Row 5: LIVE CK and MENU Buttons
+          // Row 5: Desktop Mode Toggle
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
-            // LIVE CK Button
             Button(
-              onClick = { showLiveCkDialog = true },
+              onClick = {
+                isDesktopMode = !isDesktopMode
+                prefs.edit().putBoolean("is_desktop_mode", isDesktopMode).apply()
+                webView?.let { wv ->
+                  if (isDesktopMode) {
+                    wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                  } else {
+                    wv.settings.userAgentString = getRandomMobileUserAgent()
+                  }
+                  wv.reload()
+                }
+              },
               colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = if (isDesktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = if (isDesktopMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
               ),
               shape = RoundedCornerShape(8.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
                 .height(36.dp)
-                .testTag("live_ck_button")
+                .testTag("desktop_mode_toggle_button")
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
               ) {
                 Icon(
-                  imageVector = Icons.Default.CheckCircle,
-                  contentDescription = "LIVE CK",
+                  imageVector = if (isDesktopMode) Icons.Default.Devices else Icons.Default.Smartphone,
+                  contentDescription = "Desktop Mode",
                   modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
                 )
                 Text(
-                  text = "LIVE CK",
-                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold),
+                  text = if (isDesktopMode) "Desktop Mode: ON" else "Desktop Mode: OFF",
+                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
               }
             }
-
-            // MENU Button
-            Button(
-              onClick = { showMenuDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary
-              ),
-              shape = RoundedCornerShape(8.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(36.dp)
-                .testTag("menu_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Menu,
-                  contentDescription = "MENU",
-                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
-                )
-                Text(
-                  text = "MENU",
-                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.ExtraBold),
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-          }
-
-          if (showLiveCkDialog) {
-            LiveCkDialog(onDismiss = { showLiveCkDialog = false })
-          }
-
-          if (showMenuDialog) {
-            MenuDialog(
-              webViewUrl = webView?.url ?: currentUrl,
-              lastCreatedCookies = lastCreatedCookies,
-              onDismiss = { showMenuDialog = false }
-            )
           }
         }
       }
@@ -1320,8 +1291,12 @@ fun MainScreen() {
               settings.builtInZoomControls = true
               settings.displayZoomControls = false
               
-              // Set Initial Mobile User Agent
-              settings.userAgentString = getRandomMobileUserAgent()
+              // Set Initial User Agent (Desktop or Mobile based on configuration)
+              if (isDesktopMode) {
+                settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+              } else {
+                settings.userAgentString = getRandomMobileUserAgent()
+              }
               
               // Android ID Interface
               addJavascriptInterface(AndroidIdInterface({ isAndroidIdEnabled }, context), "AndroidIDInterface")
