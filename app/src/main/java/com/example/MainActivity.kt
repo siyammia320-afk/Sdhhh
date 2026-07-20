@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Base64
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -40,7 +41,9 @@ import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
+
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -498,6 +501,17 @@ private fun extractOtpFromText(text: String): String {
   return "N/A"
 }
 
+private class AndroidIdInterface(val isEnabled: () -> Boolean, val context: Context) {
+    @android.webkit.JavascriptInterface
+    fun getAndroidId(): String {
+        return if (isEnabled()) {
+             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "null"
+        } else {
+             "fake-android-id-12345"
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -559,6 +573,10 @@ fun MainScreen() {
   var showHistoryDialog by remember { mutableStateOf(false) }
   var showCookieLoginDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
+  var showSettingsDialog by remember { mutableStateOf(false) }
+  var isAndroidIdEnabled by remember { mutableStateOf(true) }
+  var dnsServer by remember { mutableStateOf("8.8.8.8") }
+  
   var cookieLoginInput by remember { mutableStateOf("") }
   var rangesList by remember { mutableStateOf<List<String>>(emptyList()) }
   var selectedRange by remember { mutableStateOf(prefs.getString("saved_range", "") ?: "") }
@@ -625,6 +643,32 @@ fun MainScreen() {
     webView?.goBack()
   }
 
+  if (showSettingsDialog) {
+    AlertDialog(
+      onDismissRequest = { showSettingsDialog = false },
+      title = { Text("Settings") },
+      text = {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Android ID Reporting: ")
+                Switch(checked = isAndroidIdEnabled, onCheckedChange = { isAndroidIdEnabled = it })
+            }
+            OutlinedTextField(
+                value = dnsServer,
+                onValueChange = { 
+                    dnsServer = it 
+                    prefs.edit().putString("saved_dns", it).apply()
+                },
+                label = { Text("DNS Server (Internal Networking)") }
+            )
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = { showSettingsDialog = false }) { Text("OK") }
+      }
+    )
+  }
+  
   Scaffold(
     snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     topBar = {
@@ -658,6 +702,9 @@ fun MainScreen() {
           }
         },
         actions = {
+          IconButton(onClick = { showSettingsDialog = true }) {
+            Icon(Icons.Default.Settings, contentDescription = "Settings")
+          }
         },
         colors = TopAppBarDefaults.topAppBarColors(
           containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
@@ -1231,6 +1278,9 @@ fun MainScreen() {
               // Set Initial Mobile User Agent
               settings.userAgentString = getRandomMobileUserAgent()
               
+              // Android ID Interface
+              addJavascriptInterface(AndroidIdInterface({ isAndroidIdEnabled }, context), "AndroidIDInterface")
+
               // Accept Third-Party Cookies
               val cookieManager = CookieManager.getInstance()
               cookieManager.setAcceptCookie(true)
@@ -1253,9 +1303,46 @@ fun MainScreen() {
                   canGoForward = view?.canGoForward() ?: false
                 }
 
+                private fun handleCustomUri(view: WebView?, urlString: String): Boolean {
+                  if (urlString.startsWith("http://") || urlString.startsWith("https://")) {
+                    return false
+                  }
+                  try {
+                    val intent = android.content.Intent.parseUri(urlString, android.content.Intent.URI_INTENT_SCHEME)
+                    if (intent != null) {
+                      val packageManager = context.packageManager
+                      val info = packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                      if (info != null) {
+                        context.startActivity(intent)
+                      } else {
+                        val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                        if (fallbackUrl != null) {
+                          view?.loadUrl(fallbackUrl)
+                        }
+                      }
+                      return true
+                    }
+                  } catch (e: Exception) {
+                    try {
+                      val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(urlString))
+                      context.startActivity(intent)
+                      return true
+                    } catch (ex: Exception) {
+                      ex.printStackTrace()
+                    }
+                  }
+                  return true
+                }
+
+                override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                  val urlString = request?.url?.toString() ?: return false
+                  return handleCustomUri(view, urlString)
+                }
+
+                @Deprecated("Deprecated in Java")
                 override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
-                  // Let WebView handle all navigation links within the app
-                  return false
+                  if (url == null) return false
+                  return handleCustomUri(view, url)
                 }
               }
 
