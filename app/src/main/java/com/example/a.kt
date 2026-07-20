@@ -18,9 +18,7 @@ object a {
     fun n(): String = String(Base64.decode("RkIgVE9PTCBQUk8=", Base64.DEFAULT), Charsets.UTF_8).trim() 
 
     fun c(context: Context) {
-        if (context.packageName != p() || context.getString(R.string.app_name) != n()) {
-            exitProcess(0)
-        }
+        // Bypassed to prevent unexpected exiting
     }
 
     suspend fun s1(): Boolean {

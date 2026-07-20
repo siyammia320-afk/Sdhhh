@@ -52,6 +52,9 @@ fun ActivationBarrier(
     val scope = rememberCoroutineScope()
     
     val deviceId = remember { TypeResolver.getDeviceIdentifier(context) }
+    val prefs = remember { context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE) }
+    var userName by remember { mutableStateOf(prefs.getString("user_activation_name", "") ?: "") }
+    
     var isAuthorized by remember { mutableStateOf<Boolean?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -61,15 +64,8 @@ fun ActivationBarrier(
         isLoading = true
         errorMessage = null
         
-        // Security reflection self-check
-        try {
-            val clazz = Class.forName("com.example.ui.theme.util.ThemeResources")
-            val checkMethod = clazz.getMethod("checkIntegrity")
-            val result = checkMethod.invoke(null) as Boolean
-            if (!result) {
-                kotlin.system.exitProcess(0)
-            }
-        } catch (e: Exception) {
+        // Direct safe integrity check
+        if (!ThemeResources.checkIntegrity()) {
             kotlin.system.exitProcess(0)
         }
 
@@ -179,6 +175,29 @@ fun ActivationBarrier(
                         modifier = Modifier.padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        // User Name Input Field
+                        OutlinedTextField(
+                            value = userName,
+                            onValueChange = { newValue ->
+                                userName = newValue
+                                prefs.edit().putString("user_activation_name", newValue).apply()
+                            },
+                            label = { Text("আপনার নাম লিখুন (Your Name)", color = Color.LightGray) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF38BDF8),
+                                unfocusedBorderColor = Color(0xFF334155),
+                                focusedLabelColor = Color(0xFF38BDF8),
+                                unfocusedLabelColor = Color.LightGray
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        )
+
                         Text(
                             text = "আপনার ডিভাইস আইডি (Device ID):",
                             color = Color.White,
@@ -214,9 +233,15 @@ fun ActivationBarrier(
                         Button(
                             onClick = {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Device ID", deviceId)
+                                val clipText = if (userName.isNotBlank()) {
+                                    "Name: $userName\nDevice ID: $deviceId"
+                                } else {
+                                    deviceId
+                                }
+                                val clip = ClipData.newPlainText("Device ID", clipText)
                                 clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                val toastMsg = if (userName.isNotBlank()) "নাম এবং ডিভাইস আইডি কপি করা হয়েছে!" else "ডিভাইস আইডি কপি করা হয়েছে!"
+                                Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(8.dp),
@@ -233,7 +258,7 @@ fun ActivationBarrier(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "ডিভাইস আইডি কপি করুন",
+                                    text = "নাম ও ডিভাইস আইডি কপি করুন",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -286,15 +311,8 @@ fun ActivationBarrier(
                                 isLoading = true
                                 errorMessage = null
                                 
-                                // Security reflection self-check
-                                try {
-                                    val clazz = Class.forName("com.example.ui.theme.util.ThemeResources")
-                                    val checkMethod = clazz.getMethod("checkIntegrity")
-                                    val result = checkMethod.invoke(null) as Boolean
-                                    if (!result) {
-                                        kotlin.system.exitProcess(0)
-                                    }
-                                } catch (e: Exception) {
+                                // Direct safe integrity check
+                                if (!ThemeResources.checkIntegrity()) {
                                     kotlin.system.exitProcess(0)
                                 }
 
