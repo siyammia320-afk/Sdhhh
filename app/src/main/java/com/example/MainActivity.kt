@@ -141,9 +141,9 @@ private fun incrementTodayOtpCount(context: Context) {
 fun applyWebViewProxy(context: Context, enabled: Boolean, host: String, port: String) {
   if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
     if (enabled && host.isNotBlank() && port.isNotBlank()) {
-      val proxyUrl = "http://$host:$port"
       val proxyConfig = ProxyConfig.Builder()
-        .addProxyRule(proxyUrl)
+        .addProxyRule("http://$host:$port")
+        .addProxyRule("https://$host:$port")
         .addDirect()
         .build()
       try {
@@ -617,6 +617,24 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     a.c(this)
+
+    // Set up global authenticator for authenticated proxies
+    val prefs = getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
+    java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+      override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+        if (requestorType == RequestorType.PROXY) {
+          val isProxyEnabled = prefs.getBoolean("is_proxy_enabled", false)
+          val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
+          val proxyUser = prefs.getString("proxy_user", "") ?: ""
+          val proxyPass = prefs.getString("proxy_pass", "") ?: ""
+          if ((isProxyEnabled || isCreationProxyEnabled) && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+            return java.net.PasswordAuthentication(proxyUser, proxyPass.toCharArray())
+          }
+        }
+        return null
+      }
+    })
+
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
@@ -982,17 +1000,18 @@ fun MainScreen() {
           }
 
           // Bottom Rows: Compact Buttons Grid to prevent truncation
-          val compactBtnPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
+          val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
           val compactTextStyle = MaterialTheme.typography.labelMedium.copy(
             fontWeight = FontWeight.Bold,
-            fontSize = 11.sp
+            fontSize = 9.5.sp
           )
-          val compactIconSize = 14.dp
+          val compactIconSize = 12.dp
+          val compactBtnHeight = 30.dp
 
-          // Row 1: Bot Creator & Set Range
+          // Row 1: Bot Creator, Set Range, Copy Cookies
           Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
             // Bot Creator Button
@@ -1002,10 +1021,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("bot_creator_button")
             ) {
               Row(
@@ -1033,10 +1053,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1055,14 +1076,7 @@ fun MainScreen() {
                 )
               }
             }
-          }
 
-          // Row 2: Copy Cookies & Copy UID
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
             // Copy Cookies Button
             Button(
               onClick = {
@@ -1082,10 +1096,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("copy_cookies_button")
             ) {
               Row(
@@ -1098,14 +1113,21 @@ fun MainScreen() {
                   modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
-                  text = "Copy Cookies",
+                  text = "Cookies",
                   style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
               }
             }
+          }
 
+          // Row 2: Copy UID, OTP History, Cookie Login
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
             // Copy UID Button
             Button(
               onClick = {
@@ -1126,10 +1148,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 contentColor = MaterialTheme.colorScheme.onTertiaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("copy_uid_button")
             ) {
               Row(
@@ -1149,14 +1172,7 @@ fun MainScreen() {
                 )
               }
             }
-          }
 
-          // Row 3: OTP History & Cookie Login (Login)
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
             // OTP History Button
             Button(
               onClick = { showHistoryDialog = true },
@@ -1164,10 +1180,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("otp_history_button")
             ) {
               Row(
@@ -1180,7 +1197,7 @@ fun MainScreen() {
                   modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
-                  text = "OTP History",
+                  text = "History",
                   style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
@@ -1195,10 +1212,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("cookie_login_button")
             ) {
               Row(
@@ -1220,10 +1238,10 @@ fun MainScreen() {
             }
           }
 
-          // Row 4: Copy Gmail & FB Login Page
+          // Row 3: Copy Gmail, FB Login, Whoer IP
           Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
             // Copy Gmail Button
@@ -1239,10 +1257,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("copy_gmail_button")
             ) {
               Row(
@@ -1266,7 +1285,6 @@ fun MainScreen() {
             // FB Login Button
             Button(
               onClick = {
-                // Decode https://m.facebook.com/login/ safely from Base64
                 val fbLoginUrl = String(Base64.decode("aHR0cHM6Ly9tLmZhY2Vib29rLmNvbS9sb2dpbi8=", Base64.DEFAULT), Charsets.UTF_8).trim()
                 webView?.loadUrl(fbLoginUrl)
               },
@@ -1274,10 +1292,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
+                .height(compactBtnHeight)
                 .testTag("fb_login_button")
             ) {
               Row(
@@ -1297,14 +1316,49 @@ fun MainScreen() {
                 )
               }
             }
+
+            // Whoer IP Button
+            Button(
+              onClick = {
+                webView?.loadUrl("http://whoer.net/")
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+              ),
+              shape = RoundedCornerShape(6.dp),
+              contentPadding = compactBtnPadding,
+              modifier = Modifier
+                .weight(1f)
+                .height(compactBtnHeight)
+                .testTag("whoer_ip_button")
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Security,
+                  contentDescription = "Whoer IP",
+                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
+                )
+                Text(
+                  text = "Whoer IP",
+                  style = compactTextStyle,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis
+                )
+              }
+            }
           }
 
-          // Row 5: Desktop Mode Toggle
+          // Row 4: Desktop Mode, Proxy ON/OFF, Proxy Config
           Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically
           ) {
+            // Desktop Mode Toggle
             Button(
               onClick = {
                 isDesktopMode = !isDesktopMode
@@ -1322,11 +1376,11 @@ fun MainScreen() {
                 containerColor = if (isDesktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = if (isDesktopMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
-                .height(36.dp)
+                .height(compactBtnHeight)
                 .testTag("desktop_mode_toggle_button")
             ) {
               Row(
@@ -1336,24 +1390,17 @@ fun MainScreen() {
                 Icon(
                   imageVector = if (isDesktopMode) Icons.Default.Devices else Icons.Default.Smartphone,
                   contentDescription = "Desktop Mode",
-                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
-                  text = if (isDesktopMode) "Desktop Mode: ON" else "Desktop Mode: OFF",
-                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                  text = if (isDesktopMode) "Desktop: ON" else "Desktop: OFF",
+                  style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
               }
             }
-          }
 
-          // Row 6: Proxy Toggle & Config
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
             // Proxy Toggle Button
             Button(
               onClick = {
@@ -1365,11 +1412,11 @@ fun MainScreen() {
                 containerColor = if (isProxyEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = if (isProxyEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
-                .height(36.dp)
+                .height(compactBtnHeight)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1378,11 +1425,11 @@ fun MainScreen() {
                 Icon(
                   imageVector = Icons.Default.VpnKey,
                   contentDescription = "Proxy Toggle",
-                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
                   text = if (isProxyEnabled) "Proxy: ON" else "Proxy: OFF",
-                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                  style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
@@ -1396,11 +1443,11 @@ fun MainScreen() {
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
               ),
-              shape = RoundedCornerShape(8.dp),
+              shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
               modifier = Modifier
                 .weight(1f)
-                .height(36.dp)
+                .height(compactBtnHeight)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1409,11 +1456,11 @@ fun MainScreen() {
                 Icon(
                   imageVector = Icons.Default.Settings,
                   contentDescription = "Proxy Config",
-                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
                   text = "Proxy Config",
-                  style = compactTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                  style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
                 )
