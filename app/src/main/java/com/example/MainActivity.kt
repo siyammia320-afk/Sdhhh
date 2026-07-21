@@ -675,6 +675,7 @@ fun MainScreen() {
   
   var isAppActive by remember { mutableStateOf(true) }
   var updateDialogMessage by remember { mutableStateOf("অফিসিয়াল আপডেট পাওয়া যাচ্ছে। অনুগ্রহ করে নতুন ভার্সনটি ডাউনলোড করুন।") }
+  var updateDownloadUrl by remember { mutableStateOf("https://google.com") }
 
   // Admin Kill-Switch Check Loop (5 seconds)
   LaunchedEffect(Unit) {
@@ -693,14 +694,28 @@ fun MainScreen() {
     while (true) {
       try {
         val request = Request.Builder().url(adminUrl).build()
-        val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val response = withContext(Dispatchers.IO) {
           client.newCall(request).execute()
         }
         val body = response.body?.string()?.trim() ?: ""
-        isAppActive = (body == "ON")
+        
+        var parsedAsJson = false
+        try {
+          val json = org.json.JSONObject(body)
+          val status = json.optString("status", "").uppercase()
+          isAppActive = (status == "ON")
+          updateDialogMessage = json.optString("message", "অফিসিয়াল আপডেট পাওয়া যাচ্ছে। অনুগ্রহ করে নতুন ভার্সনটি ডাউনলোড করুন।")
+          updateDownloadUrl = json.optString("url", "https://google.com")
+          parsedAsJson = true
+        } catch (e: Exception) {
+          // Not a JSON
+        }
+
+        if (!parsedAsJson) {
+          isAppActive = (body.uppercase() == "ON")
+        }
         response.close()
       } catch (e: Exception) {
-        // In case of error (network, wrong URL, etc.), keep the dialog visible
         isAppActive = false
       }
       kotlinx.coroutines.delay(5000)
@@ -747,9 +762,12 @@ fun MainScreen() {
           Spacer(modifier = Modifier.height(32.dp))
           Button(
             onClick = {
-              // এখানে আপনার ডাউনলোড লিঙ্ক দিতে পারেন
-              val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://google.com"))
-              context.startActivity(intent)
+              try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateDownloadUrl))
+                context.startActivity(intent)
+              } catch (e: Exception) {
+                // Handle invalid URL
+              }
             },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = RoundedCornerShape(12.dp)
