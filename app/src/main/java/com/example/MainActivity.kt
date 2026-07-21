@@ -719,7 +719,6 @@ fun MainScreen() {
   var proxyUser by remember { mutableStateOf(prefs.getString("proxy_user", "") ?: "") }
   var proxyPass by remember { mutableStateOf(prefs.getString("proxy_pass", "") ?: "") }
   var showProxyConfigDialog by remember { mutableStateOf(false) }
-  var isPanelExpanded by remember { mutableStateOf(prefs.getBoolean("is_panel_expanded", false)) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
 
 
@@ -1008,40 +1007,24 @@ fun MainScreen() {
                   )
                 }
               }
-
-              // Expand/Collapse Toggle Button
-              IconButton(
-                onClick = {
-                  isPanelExpanded = !isPanelExpanded
-                  prefs.edit().putBoolean("is_panel_expanded", isPanelExpanded).apply()
-                },
-                modifier = Modifier.size(25.dp)
-              ) {
-                Icon(
-                  imageVector = if (isPanelExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                  contentDescription = "মেনু দেখান/লুকান",
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(20.dp)
-                )
-              }
             }
           }
 
-          AnimatedVisibility(
-            visible = isPanelExpanded
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(max = 280.dp) // Limit height to give WebView more space
+              .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
           ) {
-            Column(
-              modifier = Modifier.fillMaxWidth(),
-              verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-              // Bottom Rows: Increased Button Sizes for Better Usability
-              val compactBtnPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-              val compactTextStyle = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.sp
-              )
-              val compactIconSize = 24.dp
-              val compactBtnHeight = 62.dp
+            // Bottom Rows: Reduced Button Sizes for Better Usability
+            val compactBtnPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+            val compactTextStyle = MaterialTheme.typography.labelSmall.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 11.sp
+            )
+            val compactIconSize = 14.dp
+            val compactBtnHeight = 36.dp
 
           // Row 0: Start (New Feature)
           Row(
@@ -1059,7 +1042,12 @@ fun MainScreen() {
                     cookieManager.flush()
                     WebStorage.getInstance().deleteAllData()
                     wv.clearCache(true)
+                    
+                    // Auto Reload after clear
+                    wv.loadUrl(a.b1())
                   }
+                  
+                  kotlinx.coroutines.delay(1500) // Wait for reload to start
 
                   // 2. Auto Login with last success cookies
                   if (lastSuccessCookies.isNotBlank()) {
@@ -1107,7 +1095,7 @@ fun MainScreen() {
                     wv.loadUrl(a.b1())
                   }
                   
-                  kotlinx.coroutines.delay(1000) // Very small delay
+                  kotlinx.coroutines.delay(2000) // Wait for desktop load
 
                   // 4. Desktop Mode OFF -> Reload
                   isDesktopMode = false
@@ -1145,7 +1133,6 @@ fun MainScreen() {
                 )
               }
             }
-          }
 
           // Row 1: Bot Creator, Set Range, Copy Cookies
           Row(
