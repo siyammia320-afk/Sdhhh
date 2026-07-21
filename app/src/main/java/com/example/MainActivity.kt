@@ -1013,582 +1013,240 @@ fun MainScreen() {
           Column(
             modifier = Modifier
               .fillMaxWidth()
-              .heightIn(max = 280.dp) // Limit height to give WebView more space
-              .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+              .padding(horizontal = 2.dp, vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
           ) {
-            // Bottom Rows: Reduced Button Sizes for Better Usability
-            val compactBtnPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+            // Bottom Rows: Ultra Compact Button Sizes
+            val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 1.dp)
             val compactTextStyle = MaterialTheme.typography.labelSmall.copy(
               fontWeight = FontWeight.Bold,
-              fontSize = 11.sp
+              fontSize = 9.sp
             )
-            val compactIconSize = 14.dp
-            val compactBtnHeight = 36.dp
+            val compactIconSize = 12.dp
+            val compactBtnHeight = 28.dp
 
-          // Row 0: Start (New Feature)
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Button(
-              onClick = {
-                scope.launch {
-                  // 1. Clear Data
-                  webView?.let { wv ->
-                    val cookieManager = CookieManager.getInstance()
-                    cookieManager.removeAllCookies { }
-                    cookieManager.flush()
-                    WebStorage.getInstance().deleteAllData()
-                    wv.clearCache(true)
+            // Row 0: Start (Main Feature)
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Button(
+                onClick = {
+                  scope.launch {
+                    // 1. Clear Data & Initial Load
+                    webView?.let { wv ->
+                      val cookieManager = CookieManager.getInstance()
+                      cookieManager.removeAllCookies { }
+                      cookieManager.flush()
+                      WebStorage.getInstance().deleteAllData()
+                      wv.clearCache(true)
+                      wv.loadUrl(a.b1())
+                    }
                     
-                    // Auto Reload after clear
-                    wv.loadUrl(a.b1())
-                  }
-                  
-                  kotlinx.coroutines.delay(1500) // Wait for reload to start
+                    kotlinx.coroutines.delay(2000)
 
-                  // 2. Auto Login with last success cookies
-                  if (lastSuccessCookies.isNotBlank()) {
-                    val cookieManager = CookieManager.getInstance()
-                    cookieManager.setAcceptCookie(true)
-                    val domains = listOf(
-                      "https://.facebook.com",
-                      "https://facebook.com",
-                      "https://m.facebook.com",
-                      "https://limited.facebook.com"
-                    )
-                    val trimmed = lastSuccessCookies.trim()
-                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                      try {
-                        val jsonArray = org.json.JSONArray(trimmed)
-                        for (i in 0 until jsonArray.length()) {
-                          val obj = jsonArray.getJSONObject(i)
-                          val name = obj.optString("name")
-                          val value = obj.optString("value")
-                          val domain = obj.optString("domain", ".facebook.com")
-                          val path = obj.optString("path", "/")
-                          if (name.isNotEmpty()) {
-                            val cookieString = "$name=$value; Domain=$domain; Path=$path"
-                            domains.forEach { d -> cookieManager.setCookie(d, cookieString) }
+                    // 2. Auto Login with last success cookies
+                    if (lastSuccessCookies.isNotBlank()) {
+                      val cookieManager = CookieManager.getInstance()
+                      cookieManager.setAcceptCookie(true)
+                      val domains = listOf(
+                        "https://.facebook.com", "https://facebook.com",
+                        "https://m.facebook.com", "https://limited.facebook.com"
+                      )
+                      val trimmed = lastSuccessCookies.trim()
+                      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                        try {
+                          val jsonArray = JSONArray(trimmed)
+                          for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.getJSONObject(i)
+                            val name = obj.optString("name")
+                            val value = obj.optString("value")
+                            val domain = obj.optString("domain", ".facebook.com")
+                            val path = obj.optString("path", "/")
+                            if (name.isNotEmpty()) {
+                              val cookieString = "$name=$value; Domain=$domain; Path=$path"
+                              domains.forEach { d -> cookieManager.setCookie(d, cookieString) }
+                            }
+                          }
+                        } catch (e: Exception) {}
+                      } else {
+                        val parts = trimmed.split(";")
+                        for (part in parts) {
+                          val cleanPart = part.trim()
+                          if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
+                            domains.forEach { d -> cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/") }
                           }
                         }
-                      } catch (e: Exception) {}
-                    } else {
-                      val parts = trimmed.split(";")
-                      for (part in parts) {
-                        val cleanPart = part.trim()
-                        if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
-                          domains.forEach { d -> cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/") }
-                        }
                       }
+                      cookieManager.flush()
                     }
-                    cookieManager.flush()
-                  }
 
-                  // 3. Desktop Mode ON -> Load
-                  isDesktopMode = true
-                  prefs.edit().putBoolean("is_desktop_mode", true).apply()
-                  webView?.let { wv ->
-                    wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                    wv.loadUrl(a.b1())
-                  }
-                  
-                  kotlinx.coroutines.delay(2000) // Wait for desktop load
+                    // 3. Desktop Mode ON -> Load
+                    isDesktopMode = true
+                    prefs.edit().putBoolean("is_desktop_mode", true).apply()
+                    webView?.let { wv ->
+                      wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                      wv.loadUrl(a.b1())
+                    }
+                    
+                    kotlinx.coroutines.delay(3000)
 
-                  // 4. Desktop Mode OFF -> Reload
-                  isDesktopMode = false
-                  prefs.edit().putBoolean("is_desktop_mode", false).apply()
-                  webView?.let { wv ->
-                    wv.settings.userAgentString = null // Mobile default
-                    wv.reload()
+                    // 4. Desktop Mode OFF -> Reload
+                    isDesktopMode = false
+                    prefs.edit().putBoolean("is_desktop_mode", false).apply()
+                    webView?.let { wv ->
+                      wv.settings.userAgentString = null // Mobile default
+                      wv.reload()
+                    }
+                    
+                    snackbarHostState.showSnackbar("Process Completed!")
                   }
-                  
-                  snackbarHostState.showSnackbar("Process Completed!")
+                },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.primary,
+                  contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(compactBtnHeight)
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.Center
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Start",
+                    modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                  )
+                  Text(text = "Start (Clear, Login, Mode Fix)", style = compactTextStyle)
                 }
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .fillMaxWidth()
-                .height(compactBtnHeight)
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Refresh,
-                  contentDescription = "Start",
-                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
-                )
-                Text(
-                  text = "Start",
-                  style = compactTextStyle
-                )
               }
             }
 
-          // Row 1: Bot Creator, Set Range, Copy Cookies
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Bot Creator Button
-            Button(
-              onClick = { showCreatorDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("bot_creator_button")
+            // Row 1: Tools
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = { showCreatorDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.Android,
-                  contentDescription = "Bot Creator",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Bot Creator",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "Bot Creator", style = compactTextStyle, maxLines = 1)
               }
-            }
-            
-            // Set Range Button
-            Button(
-              onClick = { showSetRangeDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = { showSetRangeDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.VpnKey,
-                  contentDescription = "Set Range",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = if (selectedRange.isEmpty()) "Set Range" else selectedRange,
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = if (selectedRange.isEmpty()) "Range" else selectedRange, style = compactTextStyle, maxLines = 1)
               }
-            }
-
-            // Copy Cookies Button
-            Button(
-              onClick = {
-                val cookies = CookieManager.getInstance().getCookie(webView?.url ?: a.b1())
-                if (!cookies.isNullOrEmpty()) {
-                  clipboardManager.setText(AnnotatedString(cookies))
-                  scope.launch {
-                    snackbarHostState.showSnackbar("Cookies copied to clipboard!")
+              Button(
+                onClick = {
+                  val cookies = CookieManager.getInstance().getCookie(webView?.url ?: a.b1())
+                  if (!cookies.isNullOrEmpty()) {
+                    clipboardManager.setText(AnnotatedString(cookies))
+                    scope.launch { snackbarHostState.showSnackbar("Cookies Copied!") }
                   }
-                } else {
-                  scope.launch {
-                    snackbarHostState.showSnackbar("No cookies found!")
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
+              ) {
+                Text(text = "Copy Cookie", style = compactTextStyle, maxLines = 1)
+              }
+            }
+
+            // Row 2: Account
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Button(
+                onClick = {
+                  val cookies = CookieManager.getInstance().getCookie(webView?.url ?: a.b1())
+                  val uid = cookies?.split(";")?.firstOrNull { it.trim().startsWith("c_user=") }?.substringAfter("=")?.trim()
+                  if (!uid.isNullOrEmpty()) {
+                    clipboardManager.setText(AnnotatedString(uid))
+                    scope.launch { snackbarHostState.showSnackbar("UID ($uid) Copied!") }
                   }
-                }
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("copy_cookies_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.ContentCopy,
-                  contentDescription = "Copy Cookies",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Cookies",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "Copy UID", style = compactTextStyle, maxLines = 1)
               }
-            }
-          }
-
-          // Row 2: Copy UID, OTP History, Cookie Login
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Copy UID Button
-            Button(
-              onClick = {
-                val cookies = CookieManager.getInstance().getCookie(webView?.url ?: a.b1())
-                val uid = cookies?.split(";")?.firstOrNull { it.trim().startsWith("c_user=") }?.substringAfter("=")?.trim()
-                if (!uid.isNullOrEmpty()) {
-                  clipboardManager.setText(AnnotatedString(uid))
-                  scope.launch {
-                    snackbarHostState.showSnackbar("UID ($uid) copied to clipboard!")
-                  }
-                } else {
-                  scope.launch {
-                    snackbarHostState.showSnackbar("UID not found!")
-                  }
-                }
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("copy_uid_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = { showHistoryDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.ContentCopy,
-                  contentDescription = "Copy UID",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Copy UID",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "History", style = compactTextStyle, maxLines = 1)
+              }
+              Button(
+                onClick = { showCookieLoginDialog = true },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
+              ) {
+                Text(text = "Cookie Login", style = compactTextStyle, maxLines = 1)
               }
             }
 
-            // OTP History Button
-            Button(
-              onClick = { showHistoryDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("otp_history_button")
+            // Row 3: Others
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              verticalAlignment = Alignment.CenterVertically
             ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = {
+                  val randomGmail = generateRandomGmail()
+                  clipboardManager.setText(AnnotatedString(randomGmail))
+                  scope.launch { snackbarHostState.showSnackbar("Gmail Copied!") }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.History,
-                  contentDescription = "OTP History",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "History",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "Gmail Copy", style = compactTextStyle, maxLines = 1)
               }
-            }
-
-            // Cookie Login Button
-            Button(
-              onClick = { showCookieLoginDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("cookie_login_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = { webView?.loadUrl("https://m.facebook.com/login/") },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.Person,
-                  contentDescription = "Cookie Login",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Login",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "FB Login", style = compactTextStyle, maxLines = 1)
               }
-            }
-          }
-
-          // Row 3: Copy Gmail, FB Login, Whoer IP
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Copy Gmail Button
-            Button(
-              onClick = {
-                val randomGmail = generateRandomGmail()
-                clipboardManager.setText(AnnotatedString(randomGmail))
-                scope.launch {
-                  snackbarHostState.showSnackbar("Random Gmail ($randomGmail) copied!")
-                }
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("copy_gmail_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+              Button(
+                onClick = { webView?.loadUrl("https://whoer.net/") },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Icon(
-                  imageVector = Icons.Default.Email,
-                  contentDescription = "Copy Gmail",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Copy Gmail",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
+                Text(text = "Whoer IP", style = compactTextStyle, maxLines = 1)
               }
-            }
-
-            // FB Login Button
-            Button(
-              onClick = {
-                val fbLoginUrl = String(Base64.decode("aHR0cHM6Ly9tLmZhY2Vib29rLmNvbS9sb2dpbi8=", Base64.DEFAULT), Charsets.UTF_8).trim()
-                webView?.loadUrl(fbLoginUrl)
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("fb_login_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Login,
-                  contentDescription = "FB Login",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "FB Login",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-
-            // Whoer IP Button
-            Button(
-              onClick = {
-                webView?.loadUrl("https://whoer.net/")
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("whoer_ip_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Security,
-                  contentDescription = "Whoer IP",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Whoer IP",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-          }
-
-          // Row 4: Desktop Mode, Proxy ON/OFF, Proxy Config
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Desktop Mode Toggle
-            Button(
-              onClick = {
-                isDesktopMode = !isDesktopMode
-                prefs.edit().putBoolean("is_desktop_mode", isDesktopMode).apply()
-                webView?.let { wv ->
-                  if (isDesktopMode) {
-                    wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                  } else {
-                    wv.settings.userAgentString = getRandomMobileUserAgent()
-                  }
-                  wv.reload()
-                }
-              },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDesktopMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = if (isDesktopMode) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-                .testTag("desktop_mode_toggle_button")
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = if (isDesktopMode) Icons.Default.Devices else Icons.Default.Smartphone,
-                  contentDescription = "Desktop Mode",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = if (isDesktopMode) "Desktop: ON" else "Desktop: OFF",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-
-            // Proxy Settings Button
-            Button(
-              onClick = { showProxyConfigDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.VpnKey,
-                  contentDescription = "Proxy Config",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Proxy",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-
-            // Proxy Config Button
-            Button(
-              onClick = { showProxyConfigDialog = true },
-              colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-              ),
-              shape = RoundedCornerShape(6.dp),
-              contentPadding = compactBtnPadding,
-              modifier = Modifier
-                .weight(1f)
-                .height(compactBtnHeight)
-            ) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-              ) {
-                Icon(
-                  imageVector = Icons.Default.Settings,
-                  contentDescription = "Proxy Config",
-                  modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
-                )
-                Text(
-                  text = "Proxy Config",
-                  style = compactTextStyle,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis
-                )
-              }
-            }
-          }
             }
           }
         }
