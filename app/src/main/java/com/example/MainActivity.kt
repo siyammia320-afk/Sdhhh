@@ -1181,20 +1181,18 @@ fun MainScreen() {
                       cookieManager.flush()
                     }
 
-                    // 3. Desktop Mode ON -> Load
-                    if (isDesktopMode) {
-                      webView?.let { wv ->
-                        wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                        wv.loadUrl(a.b1())
-                      }
-                      kotlinx.coroutines.delay(3000)
-                    }
-
-                    // 4. Reload to final state
+                    // 3. Forced Desktop Mode ON -> Load
                     webView?.let { wv ->
-                      if (!isDesktopMode) {
-                        wv.settings.userAgentString = getRandomMobileUserAgent()
-                      }
+                      wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                      wv.loadUrl(a.b1())
+                    }
+                    kotlinx.coroutines.delay(3000)
+
+                    // 4. Reload to final state (Mobile Mode)
+                    webView?.let { wv ->
+                      isDesktopMode = false
+                      prefs.edit().putBoolean("is_desktop_mode", false).apply()
+                      wv.settings.userAgentString = getRandomMobileUserAgent()
                       wv.reload()
                     }
                     
@@ -1509,7 +1507,7 @@ fun MainScreen() {
                   host: String?,
                   realm: String?
                 ) {
-                  if (proxyHost.isNotBlank() && proxyPort.isNotBlank() && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+                  if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank() && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
                     handler?.proceed(proxyUser, proxyPass)
                   } else {
                     super.onReceivedHttpAuthRequest(view, handler, host, realm)
@@ -1729,7 +1727,7 @@ fun MainScreen() {
                               }
                               cookieManager.flush()
                               // Ensure proxy is applied to WebView during automatic login if settings exist
-                              if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+                              if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
                                 applyWebViewProxy(context, true, proxyHost, proxyPort)
                               }
                               webView?.loadUrl(a.b1())
