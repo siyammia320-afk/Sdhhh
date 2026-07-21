@@ -1135,7 +1135,10 @@ fun MainScreen() {
             ) {
               Button(
                 onClick = { showCreatorDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.primary,
+                  contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1144,7 +1147,10 @@ fun MainScreen() {
               }
               Button(
                 onClick = { showSetRangeDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.secondary,
+                  contentColor = MaterialTheme.colorScheme.onSecondary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1159,7 +1165,10 @@ fun MainScreen() {
                     scope.launch { snackbarHostState.showSnackbar("Cookies Copied!") }
                   }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.tertiary,
+                  contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1183,7 +1192,10 @@ fun MainScreen() {
                     scope.launch { snackbarHostState.showSnackbar("UID ($uid) Copied!") }
                   }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.tertiary,
+                  contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1192,7 +1204,10 @@ fun MainScreen() {
               }
               Button(
                 onClick = { showHistoryDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.secondary,
+                  contentColor = MaterialTheme.colorScheme.onSecondary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1201,7 +1216,10 @@ fun MainScreen() {
               }
               Button(
                 onClick = { showCookieLoginDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.primary,
+                  contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1222,7 +1240,10 @@ fun MainScreen() {
                   clipboardManager.setText(AnnotatedString(randomGmail))
                   scope.launch { snackbarHostState.showSnackbar("Gmail Copied!") }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.secondary,
+                  contentColor = MaterialTheme.colorScheme.onSecondary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1231,7 +1252,10 @@ fun MainScreen() {
               }
               Button(
                 onClick = { webView?.loadUrl("https://m.facebook.com/login/") },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.primary,
+                  contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
@@ -1240,7 +1264,10 @@ fun MainScreen() {
               }
               Button(
                 onClick = { webView?.loadUrl("https://whoer.net/") },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.tertiary,
+                  contentColor = MaterialTheme.colorScheme.onTertiary
+                ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
