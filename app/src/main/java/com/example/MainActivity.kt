@@ -367,14 +367,14 @@ fun createFacebookAccount(
   onFailure: (String) -> Unit
 ) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
   val proxyHost = prefs.getString("proxy_host", "") ?: ""
   val proxyPort = prefs.getString("proxy_port", "") ?: ""
   val proxyUser = prefs.getString("proxy_user", "") ?: ""
   val proxyPass = prefs.getString("proxy_pass", "") ?: ""
 
   val clientBuilder = okHttpClient.newBuilder()
-  // Use proxy if manually enabled OR if proxy details are available (as per user request for automatic proxy during creation)
+  
+  // Automatically use proxy if host/port are provided
   if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
     try {
       val proxy = java.net.Proxy(
@@ -382,13 +382,15 @@ fun createFacebookAccount(
         java.net.InetSocketAddress(proxyHost, proxyPort.toInt())
       )
       clientBuilder.proxy(proxy)
+      
+      // Direct Authentication for Proxy if credentials exist
       if (proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
-        clientBuilder.proxyAuthenticator(okhttp3.Authenticator { _, response ->
           val credential = okhttp3.Credentials.basic(proxyUser, proxyPass)
-          response.request.newBuilder()
-            .header("Proxy-Authorization", credential)
-            .build()
-        })
+          clientBuilder.proxyAuthenticator { _, response ->
+              response.request.newBuilder()
+                  .header("Proxy-Authorization", credential)
+                  .build()
+          }
       }
     } catch (e: Exception) {
       e.printStackTrace()
@@ -625,8 +627,6 @@ class MainActivity : ComponentActivity() {
     val prefs = getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
     java.net.Authenticator.setDefault(object : java.net.Authenticator() {
       override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
-        val isProxyEnabled = prefs.getBoolean("is_proxy_enabled", false)
-        val isCreationProxyEnabled = prefs.getBoolean("is_creation_proxy_enabled", false)
         val proxyUser = prefs.getString("proxy_user", "") ?: ""
         val proxyPass = prefs.getString("proxy_pass", "") ?: ""
         val proxyHost = prefs.getString("proxy_host", "") ?: ""
@@ -711,10 +711,9 @@ fun MainScreen() {
   var lastCreatedUid by remember { mutableStateOf("") }
   var lastCreatedCookies by remember { mutableStateOf("") }
   var lastCreatedOtp by remember { mutableStateOf("") }
+  var lastSuccessCookies by remember { mutableStateOf(prefs.getString("last_success_cookies", "") ?: "") }
 
   // Proxy state variables
-  var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_proxy_enabled", false)) }
-  var isCreationProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_creation_proxy_enabled", false)) }
   var proxyHost by remember { mutableStateOf(prefs.getString("proxy_host", "") ?: "") }
   var proxyPort by remember { mutableStateOf(prefs.getString("proxy_port", "") ?: "") }
   var proxyUser by remember { mutableStateOf(prefs.getString("proxy_user", "") ?: "") }
@@ -725,6 +724,7 @@ fun MainScreen() {
 
 
   // Loop for active OTP checking - checks every 2 seconds with a 20-minute timeout
+
   LaunchedEffect(activePhoneChecking) {
     if (activePhoneChecking.isNotEmpty()) {
       val startTime = System.currentTimeMillis()
@@ -808,6 +808,7 @@ fun MainScreen() {
     snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     topBar = {
       TopAppBar(
+        windowInsets = WindowInsets(0, 0, 0, 0),
         title = {
           Column {
             Row(
@@ -1034,13 +1035,117 @@ fun MainScreen() {
               verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
               // Bottom Rows: Increased Button Sizes for Better Usability
-              val compactBtnPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
-              val compactTextStyle = MaterialTheme.typography.labelMedium.copy(
+              val compactBtnPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+              val compactTextStyle = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 10.sp
+                fontSize = 17.sp
               )
-              val compactIconSize = 12.dp
-              val compactBtnHeight = 32.dp
+              val compactIconSize = 24.dp
+              val compactBtnHeight = 62.dp
+
+          // Row 0: Start (New Feature)
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+          ) {
+            Button(
+              onClick = {
+                scope.launch {
+                  // 1. Clear Data
+                  webView?.let { wv ->
+                    val cookieManager = CookieManager.getInstance()
+                    cookieManager.removeAllCookies { }
+                    cookieManager.flush()
+                    WebStorage.getInstance().deleteAllData()
+                    wv.clearCache(true)
+                  }
+
+                  // 2. Auto Login with last success cookies
+                  if (lastSuccessCookies.isNotBlank()) {
+                    val cookieManager = CookieManager.getInstance()
+                    cookieManager.setAcceptCookie(true)
+                    val domains = listOf(
+                      "https://.facebook.com",
+                      "https://facebook.com",
+                      "https://m.facebook.com",
+                      "https://limited.facebook.com"
+                    )
+                    val trimmed = lastSuccessCookies.trim()
+                    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                      try {
+                        val jsonArray = org.json.JSONArray(trimmed)
+                        for (i in 0 until jsonArray.length()) {
+                          val obj = jsonArray.getJSONObject(i)
+                          val name = obj.optString("name")
+                          val value = obj.optString("value")
+                          val domain = obj.optString("domain", ".facebook.com")
+                          val path = obj.optString("path", "/")
+                          if (name.isNotEmpty()) {
+                            val cookieString = "$name=$value; Domain=$domain; Path=$path"
+                            domains.forEach { d -> cookieManager.setCookie(d, cookieString) }
+                          }
+                        }
+                      } catch (e: Exception) {}
+                    } else {
+                      val parts = trimmed.split(";")
+                      for (part in parts) {
+                        val cleanPart = part.trim()
+                        if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
+                          domains.forEach { d -> cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/") }
+                        }
+                      }
+                    }
+                    cookieManager.flush()
+                  }
+
+                  // 3. Desktop Mode ON -> Load
+                  isDesktopMode = true
+                  prefs.edit().putBoolean("is_desktop_mode", true).apply()
+                  webView?.let { wv ->
+                    wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    wv.loadUrl(a.b1())
+                  }
+                  
+                  kotlinx.coroutines.delay(1000) // Very small delay
+
+                  // 4. Desktop Mode OFF -> Reload
+                  isDesktopMode = false
+                  prefs.edit().putBoolean("is_desktop_mode", false).apply()
+                  webView?.let { wv ->
+                    wv.settings.userAgentString = null // Mobile default
+                    wv.reload()
+                  }
+                  
+                  snackbarHostState.showSnackbar("Process Completed!")
+                }
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+              ),
+              shape = RoundedCornerShape(6.dp),
+              contentPadding = compactBtnPadding,
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(compactBtnHeight)
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(
+                  imageVector = Icons.Default.Refresh,
+                  contentDescription = "Start",
+                  modifier = Modifier.size(compactIconSize).padding(end = 4.dp)
+                )
+                Text(
+                  text = "Start",
+                  style = compactTextStyle
+                )
+              }
+            }
+          }
 
           // Row 1: Bot Creator, Set Range, Copy Cookies
           Row(
@@ -1435,16 +1540,12 @@ fun MainScreen() {
               }
             }
 
-            // Proxy Toggle Button
+            // Proxy Settings Button
             Button(
-              onClick = {
-                isProxyEnabled = !isProxyEnabled
-                prefs.edit().putBoolean("is_proxy_enabled", isProxyEnabled).apply()
-                applyWebViewProxy(context, isProxyEnabled, proxyHost, proxyPort)
-              },
+              onClick = { showProxyConfigDialog = true },
               colors = ButtonDefaults.buttonColors(
-                containerColor = if (isProxyEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = if (isProxyEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer
+                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
               ),
               shape = RoundedCornerShape(6.dp),
               contentPadding = compactBtnPadding,
@@ -1458,11 +1559,11 @@ fun MainScreen() {
               ) {
                 Icon(
                   imageVector = Icons.Default.VpnKey,
-                  contentDescription = "Proxy Toggle",
+                  contentDescription = "Proxy Config",
                   modifier = Modifier.size(compactIconSize).padding(end = 2.dp)
                 )
                 Text(
-                  text = if (isProxyEnabled) "Proxy: ON" else "Proxy: OFF",
+                  text = "Proxy",
                   style = compactTextStyle,
                   maxLines = 1,
                   overflow = TextOverflow.Ellipsis
@@ -1566,7 +1667,7 @@ fun MainScreen() {
               cookieManager.setAcceptCookie(true)
               cookieManager.setAcceptThirdPartyCookies(this, true)
 
-              if (isProxyEnabled) {
+              if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
                 applyWebViewProxy(context, true, proxyHost, proxyPort)
               }
 
@@ -1577,7 +1678,7 @@ fun MainScreen() {
                   host: String?,
                   realm: String?
                 ) {
-                  if (isProxyEnabled && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
+                  if (proxyHost.isNotBlank() && proxyPort.isNotBlank() && proxyUser.isNotBlank() && proxyPass.isNotBlank()) {
                     handler?.proceed(proxyUser, proxyPass)
                   } else {
                     super.onReceivedHttpAuthRequest(view, handler, host, realm)
@@ -1728,14 +1829,6 @@ fun MainScreen() {
               }
               isCreatingAccount = true
               
-              // Automatic Proxy Enablement for Creation
-              val pHost = prefs.getString("proxy_host", "") ?: ""
-              val pPort = prefs.getString("proxy_port", "") ?: ""
-              if (pHost.isNotBlank() && pPort.isNotBlank()) {
-                  isCreationProxyEnabled = true
-                  prefs.edit().putBoolean("is_creation_proxy_enabled", true).apply()
-              }
-              
               currentCreationStatus = "account creating..."
               lastCreatedPhone = ""
               lastCreatedUid = ""
@@ -1753,12 +1846,12 @@ fun MainScreen() {
                       passwordInput = customPassword,
                       onSuccess = { uid, name, cookies ->
                         scope.launch {
-                          isCreationProxyEnabled = false
-                          prefs.edit().putBoolean("is_creation_proxy_enabled", false).apply()
                           lastCreatedUid = uid
                           lastCreatedCookies = cookies
                           currentCreationStatus = "create success"
                           saveAccountToHistory(context, phoneNumber, uid, cookies, customPassword, "")
+                          lastSuccessCookies = cookies
+                          prefs.edit().putString("last_success_cookies", cookies).apply()
                           activePhoneChecking = phoneNumber // Start OTP checking loop
                           isCreatingAccount = false
 
@@ -1804,6 +1897,10 @@ fun MainScreen() {
                                 }
                               }
                               cookieManager.flush()
+                              // Ensure proxy is applied to WebView during automatic login if settings exist
+                              if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+                                applyWebViewProxy(context, true, proxyHost, proxyPort)
+                              }
                               webView?.loadUrl(a.b1())
                               snackbarHostState.showSnackbar("অ্যাকাউন্ট তৈরি সফল! অটোমেটিক লগইন করা হচ্ছে...")
                             } catch (e: Exception) {
@@ -1814,8 +1911,6 @@ fun MainScreen() {
                       },
                       onFailure = { errorMsg ->
                         scope.launch {
-                          isCreationProxyEnabled = false
-                          prefs.edit().putBoolean("is_creation_proxy_enabled", false).apply()
                           currentCreationStatus = "create failed"
                           saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
                           isCreatingAccount = false
@@ -1998,6 +2093,8 @@ fun MainScreen() {
         Button(
           onClick = {
             if (cookieLoginInput.isNotEmpty()) {
+              lastSuccessCookies = cookieLoginInput
+              prefs.edit().putString("last_success_cookies", cookieLoginInput).apply()
               val cookieManager = CookieManager.getInstance()
               cookieManager.setAcceptCookie(true)
               cookieManager.removeAllCookies(null)
@@ -2286,8 +2383,6 @@ fun MainScreen() {
     var portInput by remember { mutableStateOf(proxyPort) }
     var userInput by remember { mutableStateOf(proxyUser) }
     var passInput by remember { mutableStateOf(proxyPass) }
-    var isCreationProxyChecked by remember { mutableStateOf(isCreationProxyEnabled) }
-
     AlertDialog(
       onDismissRequest = { showProxyConfigDialog = false },
       title = { Text("Proxy Settings") },
@@ -2329,25 +2424,6 @@ fun MainScreen() {
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
           )
-
-          // "ক্রিয়েশনের জন্য প্রক্সি" setting
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .clickable { isCreationProxyChecked = !isCreationProxyChecked }
-              .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-          ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text("ক্রিয়েশনের জন্য প্রক্সি", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-              Text("অ্যাকাউন্ট তৈরি করার সময় এই প্রক্সি ব্যবহার করা হবে।", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(
-              checked = isCreationProxyChecked,
-              onCheckedChange = { isCreationProxyChecked = it }
-            )
-          }
         }
       },
       confirmButton = {
@@ -2357,18 +2433,16 @@ fun MainScreen() {
             proxyPort = portInput.trim()
             proxyUser = userInput.trim()
             proxyPass = passInput.trim()
-            isCreationProxyEnabled = isCreationProxyChecked
 
             prefs.edit()
               .putString("proxy_host", proxyHost)
               .putString("proxy_port", proxyPort)
               .putString("proxy_user", proxyUser)
               .putString("proxy_pass", proxyPass)
-              .putBoolean("is_creation_proxy_enabled", isCreationProxyEnabled)
               .apply()
 
             // Apply to WebView if enabled
-            if (isProxyEnabled) {
+            if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
               applyWebViewProxy(context, true, proxyHost, proxyPort)
             }
 
