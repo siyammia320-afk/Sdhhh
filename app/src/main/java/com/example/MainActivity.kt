@@ -823,14 +823,6 @@ fun MainScreen() {
   var showProxyConfigDialog by remember { mutableStateOf(false) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
 
-  // Apply proxy on startup if enabled
-  LaunchedEffect(Unit) {
-    if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
-      applyWebViewProxy(context, true, proxyHost, proxyPort)
-    }
-  }
-
-
   // Loop for active OTP checking - checks every 2 seconds with a 20-minute timeout
 
   LaunchedEffect(activePhoneChecking) {
@@ -1077,8 +1069,6 @@ fun MainScreen() {
                     } else {
                       wv.settings.userAgentString = getRandomMobileUserAgent()
                     }
-
-                    // 4. Reload facebook limited
                     wv.loadUrl(a.b1())
 
                     // 5. Show success info
@@ -1202,7 +1192,9 @@ fun MainScreen() {
 
                     // 4. Reload to final state
                     webView?.let { wv ->
-                      if (!isDesktopMode) wv.settings.userAgentString = null // Mobile default
+                      if (!isDesktopMode) {
+                        wv.settings.userAgentString = getRandomMobileUserAgent()
+                      }
                       wv.reload()
                     }
                     
@@ -1427,7 +1419,7 @@ fun MainScreen() {
                     if (isDesktopMode) {
                       wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                     } else {
-                      wv.settings.userAgentString = null
+                      wv.settings.userAgentString = getRandomMobileUserAgent()
                     }
                     wv.reload()
                   }
@@ -1443,7 +1435,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = if (isDesktopMode) "Desktop: " + (if (isDesktopMode) "ON" else "OFF") else "Desktop: OFF", style = compactTextStyle, maxLines = 1)
+                Text(text = if (isDesktopMode) "Desktop: ON" else "Desktop: OFF", style = compactTextStyle, maxLines = 1)
               }
             }
           }
@@ -1509,10 +1501,6 @@ fun MainScreen() {
               val cookieManager = CookieManager.getInstance()
               cookieManager.setAcceptCookie(true)
               cookieManager.setAcceptThirdPartyCookies(this, true)
-
-              if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
-                applyWebViewProxy(context, true, proxyHost, proxyPort)
-              }
 
               webViewClient = object : WebViewClient() {
                 override fun onReceivedHttpAuthRequest(
