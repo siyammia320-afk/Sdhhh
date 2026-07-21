@@ -1,10 +1,11 @@
 package com.example
 
-import com.example.ui.theme.font.ActivationBarrier
 import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.provider.Settings
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 
@@ -66,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -74,6 +77,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.ui.theme.MyApplicationTheme
 import com.example.z
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
@@ -643,9 +648,7 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        ActivationBarrier {
-          MainScreen()
-        }
+        MainScreen()
       }
     }
   }
@@ -670,11 +673,91 @@ private fun getCookieValue(cookieString: String?, key: String): String? {
 fun MainScreen() {
   val context = LocalContext.current
   
-  // App integrity check
+  var isAppActive by remember { mutableStateOf(true) }
+  var updateDialogMessage by remember { mutableStateOf("অফিসিয়াল আপডেট পাওয়া যাচ্ছে। অনুগ্রহ করে নতুন ভার্সনটি ডাউনলোড করুন।") }
+
+  // Admin Kill-Switch Check Loop (5 seconds)
   LaunchedEffect(Unit) {
+    val encodedUrl = z.ADMIN_LINK_BASE64
+    // Integrity Check: If the encoded link is changed from the original, exit the app
+    if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L2hrZ2YzYjI0") {
+      kotlin.system.exitProcess(0)
+    }
+
+    val adminUrl = String(Base64.decode(encodedUrl, Base64.DEFAULT), Charsets.UTF_8).trim()
+    val client = OkHttpClient.Builder()
+      .connectTimeout(10, TimeUnit.SECONDS)
+      .readTimeout(10, TimeUnit.SECONDS)
+      .build()
+
     while (true) {
-      a.c(context)
+      try {
+        val request = Request.Builder().url(adminUrl).build()
+        val response = withContext(kotlinx.coroutines.Dispatchers.IO) {
+          client.newCall(request).execute()
+        }
+        val body = response.body?.string()?.trim() ?: ""
+        isAppActive = (body == "ON")
+        response.close()
+      } catch (e: Exception) {
+        // In case of error (network, wrong URL, etc.), keep the dialog visible
+        isAppActive = false
+      }
       kotlinx.coroutines.delay(5000)
+    }
+  }
+
+  // Blocking Update Dialog
+  if (!isAppActive) {
+    androidx.compose.ui.window.Dialog(
+      onDismissRequest = { /* Do nothing to prevent dismissal */ },
+      properties = androidx.compose.ui.window.DialogProperties(
+        dismissOnBackPress = false,
+        dismissOnClickOutside = false,
+        usePlatformDefaultWidth = false
+      )
+    ) {
+      Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+      ) {
+        Column(
+          modifier = Modifier.fillMaxSize().padding(24.dp),
+          horizontalAlignment = Alignment.CenterHorizontally,
+          verticalArrangement = Arrangement.Center
+        ) {
+          Icon(
+            imageVector = Icons.Default.Update,
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.primary
+          )
+          Spacer(modifier = Modifier.height(24.dp))
+          Text(
+            text = "Update Available!",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+          )
+          Spacer(modifier = Modifier.height(16.dp))
+          Text(
+            text = updateDialogMessage,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge
+          )
+          Spacer(modifier = Modifier.height(32.dp))
+          Button(
+            onClick = {
+              // এখানে আপনার ডাউনলোড লিঙ্ক দিতে পারেন
+              val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://google.com"))
+              context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = RoundedCornerShape(12.dp)
+          ) {
+            Text("Download Now")
+          }
+        }
+      }
     }
   }
 
@@ -697,6 +780,7 @@ fun MainScreen() {
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
   var isDesktopMode by remember { mutableStateOf(prefs.getBoolean("is_desktop_mode", false)) }
+  var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_proxy_enabled", false)) }
   var isAndroidIdEnabled by remember { mutableStateOf(true) }
   var dnsServer by remember { mutableStateOf("8.8.8.8") }
   
@@ -720,6 +804,13 @@ fun MainScreen() {
   var proxyPass by remember { mutableStateOf(prefs.getString("proxy_pass", "") ?: "") }
   var showProxyConfigDialog by remember { mutableStateOf(false) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
+
+  // Apply proxy on startup if enabled
+  LaunchedEffect(Unit) {
+    if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+      applyWebViewProxy(context, true, proxyHost, proxyPort)
+    }
+  }
 
 
   // Loop for active OTP checking - checks every 2 seconds with a 20-minute timeout
@@ -1083,20 +1174,17 @@ fun MainScreen() {
                     }
 
                     // 3. Desktop Mode ON -> Load
-                    isDesktopMode = true
-                    prefs.edit().putBoolean("is_desktop_mode", true).apply()
-                    webView?.let { wv ->
-                      wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                      wv.loadUrl(a.b1())
+                    if (isDesktopMode) {
+                      webView?.let { wv ->
+                        wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        wv.loadUrl(a.b1())
+                      }
+                      kotlinx.coroutines.delay(3000)
                     }
-                    
-                    kotlinx.coroutines.delay(3000)
 
-                    // 4. Desktop Mode OFF -> Reload
-                    isDesktopMode = false
-                    prefs.edit().putBoolean("is_desktop_mode", false).apply()
+                    // 4. Reload to final state
                     webView?.let { wv ->
-                      wv.settings.userAgentString = null // Mobile default
+                      if (!isDesktopMode) wv.settings.userAgentString = null // Mobile default
                       wv.reload()
                     }
                     
@@ -1273,6 +1361,71 @@ fun MainScreen() {
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
                 Text(text = "Whoer IP", style = compactTextStyle, maxLines = 1)
+              }
+            }
+
+            // Row 4: Proxy & Desktop Mode
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(2.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Button(
+                onClick = { showProxyConfigDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = MaterialTheme.colorScheme.secondary,
+                  contentColor = MaterialTheme.colorScheme.onSecondary
+                ),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
+              ) {
+                Text(text = "Proxy Config", style = compactTextStyle, maxLines = 1)
+              }
+              Button(
+                onClick = {
+                  isProxyEnabled = !isProxyEnabled
+                  prefs.edit().putBoolean("is_proxy_enabled", isProxyEnabled).apply()
+                  applyWebViewProxy(context, isProxyEnabled, proxyHost, proxyPort)
+                  scope.launch {
+                    snackbarHostState.showSnackbar(if (isProxyEnabled) "Proxy Enabled" else "Proxy Disabled")
+                  }
+                },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = if (isProxyEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.errorContainer,
+                  contentColor = if (isProxyEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onErrorContainer
+                ),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
+              ) {
+                Text(text = if (isProxyEnabled) "Proxy: ON" else "Proxy: OFF", style = compactTextStyle, maxLines = 1)
+              }
+              Button(
+                onClick = {
+                  isDesktopMode = !isDesktopMode
+                  prefs.edit().putBoolean("is_desktop_mode", isDesktopMode).apply()
+                  webView?.let { wv ->
+                    if (isDesktopMode) {
+                      wv.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    } else {
+                      wv.settings.userAgentString = null
+                    }
+                    wv.reload()
+                  }
+                  scope.launch {
+                    snackbarHostState.showSnackbar(if (isDesktopMode) "Desktop Mode ON" else "Desktop Mode OFF")
+                  }
+                },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = if (isDesktopMode) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
+                  contentColor = if (isDesktopMode) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondary
+                ),
+                shape = RoundedCornerShape(2.dp),
+                contentPadding = compactBtnPadding,
+                modifier = Modifier.weight(1f).height(compactBtnHeight)
+              ) {
+                Text(text = if (isDesktopMode) "Desktop: " + (if (isDesktopMode) "ON" else "OFF") else "Desktop: OFF", style = compactTextStyle, maxLines = 1)
               }
             }
           }
@@ -2114,7 +2267,7 @@ fun MainScreen() {
               .apply()
 
             // Apply to WebView if enabled
-            if (proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+            if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
               applyWebViewProxy(context, true, proxyHost, proxyPort)
             }
 
