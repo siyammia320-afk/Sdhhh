@@ -6,6 +6,7 @@ import com.example.ui.theme.font.ActivationBarrier
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 import android.net.Uri
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -190,8 +191,25 @@ private fun saveAccountToHistory(context: Context, phone: String, uid: String, c
   prefs.edit().putStringSet("creation_history", history).apply()
 }
 
+// Reset and delete history after midnight (12:00 AM)
+private fun checkAndResetHistoryAtMidnight(context: Context) {
+  val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
+  val sdf = SimpleDateFormat("yyyyMMdd", Locale.US)
+  val todayStr = sdf.format(Date())
+  val savedDate = prefs.getString("last_history_date", "") ?: ""
+  if (savedDate.isNotEmpty() && savedDate != todayStr) {
+    prefs.edit()
+      .remove("creation_history")
+      .putString("last_history_date", todayStr)
+      .apply()
+  } else if (savedDate.isEmpty()) {
+    prefs.edit().putString("last_history_date", todayStr).apply()
+  }
+}
+
 // Get SharedPreferences history
 private fun getHistory(context: Context): List<HistoryItem> {
+  checkAndResetHistoryAtMidnight(context)
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
   val history = prefs.getStringSet("creation_history", emptySet()) ?: emptySet()
   return history.mapNotNull { entry ->
@@ -1897,18 +1915,60 @@ fun MainScreen() {
           verticalAlignment = Alignment.CenterVertically
         ) {
           Row(
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
           ) {
             Icon(
               imageVector = Icons.Default.History,
               contentDescription = null,
-              tint = MaterialTheme.colorScheme.secondary
+              tint = MaterialTheme.colorScheme.secondary,
+              modifier = Modifier.size(20.dp)
             )
             Text(
               text = "ওটিপি ও অ্যাকাউন্ট ইতিহাস",
-              style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+              style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+              maxLines = 1
             )
+          }
+          
+          Button(
+            onClick = {
+              val textToCopy = historyItems.value
+                .filter { it.otp.trim().isNotEmpty() }
+                .joinToString("\n") { "${it.phone}\t${it.otp}" }
+              if (textToCopy.isNotEmpty()) {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("Copied OTPs", textToCopy)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(context, "আজকের ওটিপি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+              } else {
+                Toast.makeText(context, "কপি করার মতো কোনো ওটিপি পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+              }
+            },
+            colors = ButtonDefaults.buttonColors(
+              containerColor = Color(0xFF10B981), // Emerald/Green
+              contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(6.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+            modifier = Modifier.height(30.dp)
+          ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.ContentCopy,
+                contentDescription = "Copy OTP",
+                modifier = Modifier.size(12.dp)
+              )
+              Text(
+                text = "Copy",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+              )
+            }
           }
         }
       },

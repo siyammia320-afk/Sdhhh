@@ -128,10 +128,77 @@ fun ActivationBarrier(
         label = "shimmerColorAlt"
     )
 
+    // Helper to check app control status from GitHub (status.json)
+    suspend fun checkAppControlStatus() {
+        val encodedGithubUrl = com.example.z.GITHUB_LINK_BASE64
+        if (encodedGithubUrl != "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2Zlcm9qbWFqdW1kZXIxMDAtbGFuZy9BZG1pbi1vcm5vYi9yZWZzL2hlYWRzL21haW4vc3RhdHVzLmpzb24=") {
+            kotlin.system.exitProcess(0)
+        }
+        
+        val encodedUrl = com.example.z.ADMIN_LINK_BASE64
+        if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2") {
+            kotlin.system.exitProcess(0)
+        }
+
+        try {
+            val githubUrl = String(android.util.Base64.decode(encodedGithubUrl, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+            val client = okhttp3.OkHttpClient.Builder()
+                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+            
+            var responseBody: String? = null
+            for (attempt in 1..3) {
+                try {
+                    val request = okhttp3.Request.Builder()
+                        .url(githubUrl)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+                        .header("Cache-Control", "no-cache")
+                        .build()
+                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        client.newCall(request).execute()
+                    }
+                    responseBody = response.body?.string()?.trim()
+                    response.close()
+                    if (responseBody != null && responseBody.isNotEmpty()) {
+                        break
+                    }
+                } catch (e: Exception) {
+                    if (attempt == 3) throw e
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+            
+            if (responseBody != null && responseBody.isNotEmpty()) {
+                val cleanText = responseBody.uppercase()
+                var isOff = false
+                try {
+                    val jsonObj = org.json.JSONObject(responseBody)
+                    val statusValue = jsonObj.optString("status", "").trim().uppercase()
+                    if (statusValue == "OFF") {
+                        isOff = true
+                    }
+                } catch (je: Exception) {
+                    if (cleanText == "OFF" || cleanText.contains("\"STATUS\":\"OFF\"") || cleanText.contains("\"STATUS\": \"OFF\"")) {
+                        isOff = true
+                    }
+                }
+                
+                if (isOff) {
+                    kotlin.system.exitProcess(0)
+                }
+            }
+        } catch (e: Exception) {
+            // Keep app running on pure network exceptions unless we explicitly parsed OFF
+        }
+    }
+
     // Helper fun to check authorization and expiration
     suspend fun checkAuthStatus() {
         val encodedUrl = com.example.z.ADMIN_LINK_BASE64
-        if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2") {
+        val encodedGithubUrl = com.example.z.GITHUB_LINK_BASE64
+        if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2" ||
+            encodedGithubUrl != "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2Zlcm9qbWFqdW1kZXIxMDAtbGFuZy9BZG1pbi1vcm5vYi9yZWZzL2hlYWRzL21haW4vc3RhdHVzLmpzb24=") {
             kotlin.system.exitProcess(0)
         }
         
@@ -142,12 +209,36 @@ fun ActivationBarrier(
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
             
-            val request = okhttp3.Request.Builder().url(adminUrl).build()
-            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                client.newCall(request).execute()
+            var body = ""
+            var lastEx: Exception? = null
+            
+            for (attempt in 1..3) {
+                try {
+                    val request = okhttp3.Request.Builder()
+                        .url(adminUrl)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+                        .header("Cache-Control", "no-cache")
+                        .build()
+                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        client.newCall(request).execute()
+                    }
+                    body = response.body?.string()?.trim() ?: ""
+                    response.close()
+                    if (body.isNotEmpty()) {
+                        lastEx = null
+                        break
+                    }
+                } catch (e: Exception) {
+                    lastEx = e
+                    if (attempt < 3) {
+                        kotlinx.coroutines.delay(1000)
+                    }
+                }
             }
-            val body = response.body?.string()?.trim() ?: ""
-            response.close()
+            
+            if (lastEx != null) {
+                throw lastEx
+            }
             
             val cleanDeviceId = deviceId.trim().lowercase()
             
@@ -225,11 +316,13 @@ fun ActivationBarrier(
     // Auto-check on launch and then loop every 5 seconds
     LaunchedEffect(Unit) {
         isLoading = true
+        checkAppControlStatus()
         checkAuthStatus()
         isLoading = false
         
         while (true) {
             kotlinx.coroutines.delay(5000)
+            checkAppControlStatus()
             checkAuthStatus()
         }
     }
