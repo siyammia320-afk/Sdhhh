@@ -4,6 +4,7 @@ import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
 import com.example.ui.theme.font.ActivationBarrier
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.FirebaseApp
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -647,6 +648,11 @@ private class AndroidIdInterface(val isEnabled: () -> Boolean, val context: Cont
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    try {
+      FirebaseApp.initializeApp(this)
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
     a.c(this)
 
     // Set up global authenticator for authenticated proxies

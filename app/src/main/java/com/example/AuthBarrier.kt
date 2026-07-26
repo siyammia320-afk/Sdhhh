@@ -33,7 +33,33 @@ fun AuthBarrier(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val auth = remember { FirebaseAuth.getInstance() }
+    val auth = remember {
+        try {
+            FirebaseAuth.getInstance()
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    if (auth == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF090D1A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "ফায়ারবেস অথেনটিকেশন ইনিশিয়ালাইজ করতে ব্যর্থ হয়েছে।\nদয়া করে গুগল প্লে সার্ভিস সচল আছে কিনা তা চেক করুন।",
+                color = Color.Red,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(24.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
+        }
+        return
+    }
+
     var currentUser by remember { mutableStateOf(auth.currentUser) }
 
     DisposableEffect(auth) {
@@ -231,16 +257,15 @@ fun AuthBarrier(
             }
         }
     } else {
-        AuthScreen()
+        AuthScreen(auth)
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AuthScreen() {
+fun AuthScreen(auth: FirebaseAuth) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val auth = remember { FirebaseAuth.getInstance() }
 
     var isLoginTab by remember { mutableStateOf(true) }
     var email by remember { mutableStateOf("") }
