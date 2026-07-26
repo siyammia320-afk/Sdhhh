@@ -1097,8 +1097,8 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.primary,
-                  contentColor = MaterialTheme.colorScheme.onPrimary
+                  containerColor = Color(0xFF6366F1), // Indigo
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1129,8 +1129,8 @@ fun MainScreen() {
               Button(
                 onClick = { showCreatorDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.primary,
-                  contentColor = MaterialTheme.colorScheme.onPrimary
+                  containerColor = Color(0xFFF97316), // Orange
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1141,8 +1141,8 @@ fun MainScreen() {
               Button(
                 onClick = { showSetRangeDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.secondary,
-                  contentColor = MaterialTheme.colorScheme.onSecondary
+                  containerColor = Color(0xFF8B5CF6), // Violet
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1159,8 +1159,8 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.tertiary,
-                  contentColor = MaterialTheme.colorScheme.onTertiary
+                  containerColor = Color(0xFF3B82F6), // Vibrant Blue
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1186,8 +1186,8 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.tertiary,
-                  contentColor = MaterialTheme.colorScheme.onTertiary
+                  containerColor = Color(0xFF06B6D4), // Deep Cyan/Teal
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1198,8 +1198,8 @@ fun MainScreen() {
               Button(
                 onClick = { showHistoryDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.secondary,
-                  contentColor = MaterialTheme.colorScheme.onSecondary
+                  containerColor = Color(0xFFF43F5E), // Rose/Pink
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1210,8 +1210,8 @@ fun MainScreen() {
               Button(
                 onClick = { showCookieLoginDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.primary,
-                  contentColor = MaterialTheme.colorScheme.onPrimary
+                  containerColor = Color(0xFFD97706), // Amber/Golden
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1234,8 +1234,8 @@ fun MainScreen() {
                   scope.launch { snackbarHostState.showSnackbar("Gmail Copied!") }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.secondary,
-                  contentColor = MaterialTheme.colorScheme.onSecondary
+                  containerColor = Color(0xFF10B981), // Vibrant Green/Emerald
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1246,8 +1246,8 @@ fun MainScreen() {
               Button(
                 onClick = { webView?.loadUrl("https://m.facebook.com/login/") },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.primary,
-                  contentColor = MaterialTheme.colorScheme.onPrimary
+                  containerColor = Color(0xFF1877F2), // Official Facebook Blue
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1258,8 +1258,8 @@ fun MainScreen() {
               Button(
                 onClick = { webView?.loadUrl("https://whoer.net/") },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.tertiary,
-                  contentColor = MaterialTheme.colorScheme.onTertiary
+                  containerColor = Color(0xFFD946EF), // Fuchsia/Pink-Purple
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1278,8 +1278,8 @@ fun MainScreen() {
               Button(
                 onClick = { showProxyConfigDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = MaterialTheme.colorScheme.secondary,
-                  contentColor = MaterialTheme.colorScheme.onSecondary
+                  containerColor = Color(0xFF64748B), // Slate Grey
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1297,8 +1297,8 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = if (isProxyEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.errorContainer,
-                  contentColor = if (isProxyEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onErrorContainer
+                  containerColor = if (isProxyEnabled) Color(0xFF22C55E) else Color(0xFFEF4444), // Vibrant Green or Red
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
@@ -1323,8 +1323,8 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = if (isDesktopMode) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondary,
-                  contentColor = if (isDesktopMode) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondary
+                  containerColor = if (isDesktopMode) Color(0xFFF59E0B) else Color(0xFF475569), // Bright Amber/Orange or Deep Slate
+                  contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(2.dp),
                 contentPadding = compactBtnPadding,
