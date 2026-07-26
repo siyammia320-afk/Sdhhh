@@ -31,7 +31,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.util.ThemeResources
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 object TypeResolver {
 
@@ -84,6 +86,7 @@ fun ActivationBarrier(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentUserName by remember { mutableStateOf("") }
     var currentUserExpire by remember { mutableStateOf("") }
+    var isAppDisabled by remember { mutableStateOf(false) }
 
     // Infinite transitions for glittering ("ঝিকিমিকি") effects
     val infiniteTransition = rememberInfiniteTransition(label = "cyber_shimmer")
@@ -128,49 +131,34 @@ fun ActivationBarrier(
         label = "shimmerColorAlt"
     )
 
-    // Helper to check app control status from GitHub (status.json)
+    // Helper to check app control status from Firebase Realtime Database
     suspend fun checkAppControlStatus() {
-        val encodedGithubUrl = com.example.z.GITHUB_LINK_BASE64
-        if (encodedGithubUrl != "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2Zlcm9qbWFqdW1kZXIxMDAtbGFuZy9BZG1pbi1vcm5vYi9yZWZzL2hlYWRzL21haW4vc3RhdHVzLmpzb24=") {
-            kotlin.system.exitProcess(0)
-        }
-        
-        val encodedUrl = com.example.z.ADMIN_LINK_BASE64
-        if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2") {
-            kotlin.system.exitProcess(0)
-        }
-
         try {
-            val githubUrl = String(android.util.Base64.decode(encodedGithubUrl, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+            val user = FirebaseAuth.getInstance().currentUser
+            val tokenResult = user?.getIdToken(false)?.await()
+            val idToken = tokenResult?.token ?: ""
+            
             val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
             
-            var responseBody: String? = null
-            for (attempt in 1..3) {
-                try {
-                    val request = okhttp3.Request.Builder()
-                        .url(githubUrl)
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-                        .header("Cache-Control", "no-cache")
-                        .build()
-                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        client.newCall(request).execute()
-                    }
-                    responseBody = response.body?.string()?.trim()
-                    response.close()
-                    if (responseBody != null && responseBody.isNotEmpty()) {
-                        break
-                    }
-                } catch (e: Exception) {
-                    if (attempt == 3) throw e
-                    kotlinx.coroutines.delay(1000)
-                }
+            val url = "https://test-app-55616-default-rtdb.firebaseio.com/status.json" + 
+                    if (idToken.isNotEmpty()) "?auth=$idToken" else ""
+                    
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+                .header("Cache-Control", "no-cache")
+                .build()
+                
+            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                client.newCall(request).execute()
             }
+            val responseBody = response.body?.string()?.trim()
+            response.close()
             
-            if (responseBody != null && responseBody.isNotEmpty()) {
-                val cleanText = responseBody.uppercase()
+            if (responseBody != null && responseBody.isNotEmpty() && responseBody != "null") {
                 var isOff = false
                 try {
                     val jsonObj = org.json.JSONObject(responseBody)
@@ -179,76 +167,60 @@ fun ActivationBarrier(
                         isOff = true
                     }
                 } catch (je: Exception) {
-                    if (cleanText == "OFF" || cleanText.contains("\"STATUS\":\"OFF\"") || cleanText.contains("\"STATUS\": \"OFF\"")) {
+                    val cleanText = responseBody.replace("\"", "").trim().uppercase()
+                    if (cleanText == "OFF") {
                         isOff = true
                     }
                 }
-                
-                if (isOff) {
-                    kotlin.system.exitProcess(0)
-                }
+                isAppDisabled = isOff
+            } else {
+                isAppDisabled = false
             }
         } catch (e: Exception) {
-            // Keep app running on pure network exceptions unless we explicitly parsed OFF
+            // Keep current status on network error
         }
     }
 
-    // Helper fun to check authorization and expiration
+    // Helper fun to check authorization and expiration from Firebase Realtime Database
     suspend fun checkAuthStatus() {
-        val encodedUrl = com.example.z.ADMIN_LINK_BASE64
-        val encodedGithubUrl = com.example.z.GITHUB_LINK_BASE64
-        if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2" ||
-            encodedGithubUrl != "aHR0cHM6Ly9yYXcuZ2l0aHVidXNlcmNvbnRlbnQuY29tL2Zlcm9qbWFqdW1kZXIxMDAtbGFuZy9BZG1pbi1vcm5vYi9yZWZzL2hlYWRzL21haW4vc3RhdHVzLmpzb24=") {
-            kotlin.system.exitProcess(0)
-        }
-        
         try {
-            val adminUrl = String(android.util.Base64.decode(encodedUrl, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+            val user = FirebaseAuth.getInstance().currentUser
+            val tokenResult = user?.getIdToken(false)?.await()
+            val idToken = tokenResult?.token ?: ""
+            
             val client = okhttp3.OkHttpClient.Builder()
                 .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
-            
-            var body = ""
-            var lastEx: Exception? = null
-            
-            for (attempt in 1..3) {
-                try {
-                    val request = okhttp3.Request.Builder()
-                        .url(adminUrl)
-                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-                        .header("Cache-Control", "no-cache")
-                        .build()
-                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        client.newCall(request).execute()
-                    }
-                    body = response.body?.string()?.trim() ?: ""
-                    response.close()
-                    if (body.isNotEmpty()) {
-                        lastEx = null
-                        break
-                    }
-                } catch (e: Exception) {
-                    lastEx = e
-                    if (attempt < 3) {
-                        kotlinx.coroutines.delay(1000)
-                    }
-                }
+                
+            val url = "https://test-app-55616-default-rtdb.firebaseio.com/devices.json" + 
+                    if (idToken.isNotEmpty()) "?auth=$idToken" else ""
+                    
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
+                .header("Cache-Control", "no-cache")
+                .build()
+                
+            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                client.newCall(request).execute()
             }
+            val body = response.body?.string()?.trim() ?: ""
+            response.close()
             
-            if (lastEx != null) {
-                throw lastEx
+            if (body.isEmpty() || body == "null") {
+                isAuthorized = false
+                errorMessage = "আপনার ডিভাইস আইডিটি এক্টিভেট করা নেই। অনুগ্রহ করে কপি করে অ্যাডমিনের সাথে যোগাযোগ করুন।"
+                return
             }
             
             val cleanDeviceId = deviceId.trim().lowercase()
-            
             var found = false
             var isExpired = false
             var expDateStr = ""
             var uName = ""
             
             try {
-                // Try parsing the Pastebin content as JSON
                 val json = org.json.JSONObject(body)
                 val keys = json.keys()
                 while (keys.hasNext()) {
@@ -276,7 +248,6 @@ fun ActivationBarrier(
                     if (expireDate != null) {
                         val cal = java.util.Calendar.getInstance()
                         cal.time = expireDate
-                        // Let it stay active until 23:59:59 of that expiration day
                         cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
                         cal.set(java.util.Calendar.MINUTE, 59)
                         cal.set(java.util.Calendar.SECOND, 59)
@@ -289,7 +260,6 @@ fun ActivationBarrier(
                     }
                 }
             } catch (jsonEx: Exception) {
-                // If not valid JSON, fallback to check if body contains deviceId (backward-compatible mode)
                 found = body.lowercase().contains(cleanDeviceId)
                 isExpired = false
             }
@@ -327,7 +297,77 @@ fun ActivationBarrier(
         }
     }
 
-    if (isAuthorized == true) {
+    if (isAppDisabled) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF090D1A), // Ultra Deep Slate/Blue
+                            Color(0xFF030712)  // Deep Black
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+                    .widthIn(max = 420.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .background(Color(0xFFEF4444).copy(alpha = 0.15f), RoundedCornerShape(36.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Disabled",
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "অ্যাপটি সাময়িকভাবে বন্ধ আছে",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                Text(
+                    text = "অ্যাডমিন সাময়িকভাবে অ্যাপের কার্যক্রম বন্ধ করে রেখেছেন। অনুগ্রহ করে পরে আবার চেষ্টা করুন অথবা অ্যাডমিনের সাথে যোগাযোগ করুন।",
+                    color = Color.LightGray,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                Button(
+                    onClick = {
+                        FirebaseAuth.getInstance().signOut()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text("লগআউট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    } else if (isAuthorized == true) {
         onGranted()
     } else {
         Box(

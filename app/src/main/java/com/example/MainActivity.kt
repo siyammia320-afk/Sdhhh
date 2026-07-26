@@ -3,6 +3,7 @@ package com.example
 import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
 import com.example.ui.theme.font.ActivationBarrier
+import com.google.firebase.auth.FirebaseAuth
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
@@ -667,8 +669,10 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        ActivationBarrier {
-          MainScreen()
+        AuthBarrier {
+          ActivationBarrier {
+            MainScreen()
+          }
         }
       }
     }
@@ -855,6 +859,12 @@ fun MainScreen() {
         actions = {
           IconButton(onClick = { showSettingsDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Settings")
+          }
+          IconButton(onClick = {
+            FirebaseAuth.getInstance().signOut()
+            Toast.makeText(context, "লগআউট করা হয়েছে", Toast.LENGTH_SHORT).show()
+          }) {
+            Icon(Icons.Default.Lock, contentDescription = "Logout")
           }
         },
         colors = TopAppBarDefaults.topAppBarColors(
