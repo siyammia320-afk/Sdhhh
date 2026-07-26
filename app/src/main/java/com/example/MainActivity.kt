@@ -2,6 +2,7 @@ package com.example
 
 import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
+import com.example.ui.theme.font.ActivationBarrier
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -648,7 +649,9 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        MainScreen()
+        ActivationBarrier {
+          MainScreen()
+        }
       }
     }
   }
@@ -673,112 +676,6 @@ private fun getCookieValue(cookieString: String?, key: String): String? {
 fun MainScreen() {
   val context = LocalContext.current
   
-  var isAppActive by remember { mutableStateOf(true) }
-  var updateDialogMessage by remember { mutableStateOf("অফিসিয়াল আপডেট পাওয়া যাচ্ছে। অনুগ্রহ করে নতুন ভার্সনটি ডাউনলোড করুন।") }
-  var updateDownloadUrl by remember { mutableStateOf("https://google.com") }
-
-  // Admin Kill-Switch Check Loop (5 seconds)
-  LaunchedEffect(Unit) {
-    val encodedUrl = z.ADMIN_LINK_BASE64
-    // Integrity Check: If the encoded link is changed from the original, exit the app
-    if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L2hrZ2YzYjI0") {
-      kotlin.system.exitProcess(0)
-    }
-
-    val adminUrl = String(Base64.decode(encodedUrl, Base64.DEFAULT), Charsets.UTF_8).trim()
-    val client = OkHttpClient.Builder()
-      .connectTimeout(10, TimeUnit.SECONDS)
-      .readTimeout(10, TimeUnit.SECONDS)
-      .build()
-
-    while (true) {
-      try {
-        val request = Request.Builder().url(adminUrl).build()
-        val response = withContext(Dispatchers.IO) {
-          client.newCall(request).execute()
-        }
-        val body = response.body?.string()?.trim() ?: ""
-        
-        var parsedAsJson = false
-        try {
-          val json = org.json.JSONObject(body)
-          val status = json.optString("status", "").uppercase()
-          isAppActive = (status == "ON")
-          updateDialogMessage = json.optString("message", "অফিসিয়াল আপডেট পাওয়া যাচ্ছে। অনুগ্রহ করে নতুন ভার্সনটি ডাউনলোড করুন।")
-          updateDownloadUrl = json.optString("url", "https://google.com")
-          parsedAsJson = true
-        } catch (e: Exception) {
-          // Not a JSON
-        }
-
-        if (!parsedAsJson) {
-          isAppActive = (body.uppercase() == "ON")
-        }
-        response.close()
-      } catch (e: Exception) {
-        isAppActive = false
-      }
-      kotlinx.coroutines.delay(5000)
-    }
-  }
-
-  // Blocking Update Dialog
-  if (!isAppActive) {
-    androidx.compose.ui.window.Dialog(
-      onDismissRequest = { /* Do nothing to prevent dismissal */ },
-      properties = androidx.compose.ui.window.DialogProperties(
-        dismissOnBackPress = false,
-        dismissOnClickOutside = false,
-        usePlatformDefaultWidth = false
-      )
-    ) {
-      Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-      ) {
-        Column(
-          modifier = Modifier.fillMaxSize().padding(24.dp),
-          horizontalAlignment = Alignment.CenterHorizontally,
-          verticalArrangement = Arrangement.Center
-        ) {
-          Icon(
-            imageVector = Icons.Default.Update,
-            contentDescription = null,
-            modifier = Modifier.size(80.dp),
-            tint = MaterialTheme.colorScheme.primary
-          )
-          Spacer(modifier = Modifier.height(24.dp))
-          Text(
-            text = "Update Available!",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-          )
-          Spacer(modifier = Modifier.height(16.dp))
-          Text(
-            text = updateDialogMessage,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyLarge
-          )
-          Spacer(modifier = Modifier.height(32.dp))
-          Button(
-            onClick = {
-              try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateDownloadUrl))
-                context.startActivity(intent)
-              } catch (e: Exception) {
-                // Handle invalid URL
-              }
-            },
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(12.dp)
-          ) {
-            Text("Download Now")
-          }
-        }
-      }
-    }
-  }
-
   val clipboardManager = LocalClipboardManager.current
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
