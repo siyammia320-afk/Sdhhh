@@ -8,6 +8,7 @@ import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,6 +49,27 @@ object TypeResolver {
     }
 }
 
+private fun parseExpirationDate(dateStr: String): java.util.Date? {
+    val formats = listOf(
+        "dd:MM:yyyy",
+        "dd-MM-yyyy",
+        "dd/MM/yyyy",
+        "yyyy-MM-dd",
+        "yyyy:MM:dd",
+        "yyyy/MM/dd"
+    )
+    for (format in formats) {
+        try {
+            val sdf = java.text.SimpleDateFormat(format, java.util.Locale.US)
+            sdf.isLenient = false
+            return sdf.parse(dateStr.trim())
+        } catch (e: Exception) {
+            // try next format
+        }
+    }
+    return null
+}
+
 @Composable
 fun ActivationBarrier(
     onGranted: @Composable () -> Unit
@@ -59,8 +82,53 @@ fun ActivationBarrier(
     var isAuthorized by remember { mutableStateOf<Boolean?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var currentUserName by remember { mutableStateOf("") }
+    var currentUserExpire by remember { mutableStateOf("") }
 
-    // Helper fun to check authorization
+    // Infinite transitions for glittering ("ঝিকিমিকি") effects
+    val infiniteTransition = rememberInfiniteTransition(label = "cyber_shimmer")
+    
+    val scalePulse by infiniteTransition.animateFloat(
+        initialValue = 0.92f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scalePulse"
+    )
+
+    val glowFloat by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 3.5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowFloat"
+    )
+
+    val shimmerColor by infiniteTransition.animateColor(
+        initialValue = Color(0xFF38BDF8), // Radiant Cyan
+        targetValue = Color(0xFFEC4899), // Vibrant Pink
+        animationSpec = infiniteRepeatable(
+            animation = tween(2500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerColor"
+    )
+
+    val shimmerColorAlt by infiniteTransition.animateColor(
+        initialValue = Color(0xFF8B5CF6), // Royal Violet
+        targetValue = Color(0xFF10B981), // Emerald Green
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shimmerColorAlt"
+    )
+
+    // Helper fun to check authorization and expiration
     suspend fun checkAuthStatus() {
         val encodedUrl = com.example.z.ADMIN_LINK_BASE64
         if (encodedUrl != "aHR0cHM6Ly9wYXN0ZWJpbi5jb20vcmF3L1NHTmRnRzB2") {
@@ -82,13 +150,68 @@ fun ActivationBarrier(
             response.close()
             
             val cleanDeviceId = deviceId.trim().lowercase()
-            val cleanBody = body.lowercase()
             
-            val authorized = cleanBody.contains(cleanDeviceId)
-            isAuthorized = authorized
-            if (!authorized) {
+            var found = false
+            var isExpired = false
+            var expDateStr = ""
+            var uName = ""
+            
+            try {
+                // Try parsing the Pastebin content as JSON
+                val json = org.json.JSONObject(body)
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    if (key.trim().lowercase() == cleanDeviceId) {
+                        found = true
+                        val valueObj = json.opt(key)
+                        if (valueObj is org.json.JSONObject) {
+                            expDateStr = valueObj.optString("expire", "").trim()
+                            uName = valueObj.optString("name", "").trim()
+                        } else {
+                            expDateStr = valueObj?.toString()?.trim() ?: ""
+                        }
+                        break
+                    }
+                }
+                
+                if (found) {
+                    currentUserName = uName
+                    currentUserExpire = expDateStr
+                }
+                
+                if (found && expDateStr.isNotEmpty()) {
+                    val expireDate = parseExpirationDate(expDateStr)
+                    if (expireDate != null) {
+                        val cal = java.util.Calendar.getInstance()
+                        cal.time = expireDate
+                        // Let it stay active until 23:59:59 of that expiration day
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                        cal.set(java.util.Calendar.MINUTE, 59)
+                        cal.set(java.util.Calendar.SECOND, 59)
+                        cal.set(java.util.Calendar.MILLISECOND, 999)
+                        val endOfExpireDay = cal.time
+                        
+                        if (java.util.Date().after(endOfExpireDay)) {
+                            isExpired = true
+                        }
+                    }
+                }
+            } catch (jsonEx: Exception) {
+                // If not valid JSON, fallback to check if body contains deviceId (backward-compatible mode)
+                found = body.lowercase().contains(cleanDeviceId)
+                isExpired = false
+            }
+            
+            if (!found) {
+                isAuthorized = false
                 errorMessage = "আপনার ডিভাইস আইডিটি এক্টিভেট করা নেই। অনুগ্রহ করে কপি করে অ্যাডমিনের সাথে যোগাযোগ করুন।"
+            } else if (isExpired) {
+                isAuthorized = false
+                val namePart = if (uName.isNotEmpty()) "ব্যবহারকারী: $uName\n" else ""
+                errorMessage = "${namePart}আপনার ডিভাইসের মেয়াদ শেষ হয়ে গেছে! অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।\n(মেয়াদ উত্তীর্ণ: $expDateStr)"
             } else {
+                isAuthorized = true
                 errorMessage = null
             }
         } catch (e: Exception) {
@@ -120,8 +243,8 @@ fun ActivationBarrier(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF0F172A), // Slate 900
-                            Color(0xFF020617)  // Slate 950
+                            Color(0xFF090D1A), // Ultra Deep Slate/Blue
+                            Color(0xFF030712)  // Deep Black
                         )
                     )
                 ),
@@ -135,23 +258,34 @@ fun ActivationBarrier(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Lock Icon inside compact circle
+                // Glittering & Pulsing Circle around lock icon
                 Box(
                     modifier = Modifier
-                        .size(60.dp)
-                        .background(Color(0xFF1E293B), RoundedCornerShape(30.dp))
-                        .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(30.dp)),
+                        .size(70.dp)
+                        .graphicsLayer(
+                            scaleX = scalePulse,
+                            scaleY = scalePulse
+                        )
+                        .background(shimmerColor.copy(alpha = 0.15f), RoundedCornerShape(35.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Lock",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(Color(0xFF111827), RoundedCornerShape(26.dp))
+                            .border(glowFloat.dp, shimmerColor, RoundedCornerShape(26.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Lock",
+                            tint = shimmerColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = "ডিভাইস ভেরিফিকেশন প্রয়োজন",
@@ -161,20 +295,21 @@ fun ActivationBarrier(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Error Message Section (if any error/unauthorized)
                 errorMessage?.let { msg ->
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF451A03)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF3F1A1A)),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp)
+                            .padding(bottom = 10.dp)
+                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                     ) {
                         Text(
                             text = msg,
-                            color = Color(0xFFFDBA74),
+                            color = Color(0xFFFCA5A5),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.padding(10.dp),
@@ -185,9 +320,19 @@ fun ActivationBarrier(
 
                 // Device ID Display Card
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111827)),
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                brush = Brush.linearGradient(
+                                    colors = listOf(shimmerColor, shimmerColorAlt)
+                                )
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
                 ) {
                     Column(
                         modifier = Modifier.padding(12.dp),
@@ -201,28 +346,36 @@ fun ActivationBarrier(
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                        // Styled ID text container
+                        // Styled ID text container with dynamic shimmering gradient border
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(Color(0xFF0F172A), RoundedCornerShape(6.dp))
-                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp))
+                                .background(Color(0xFF030712), RoundedCornerShape(6.dp))
+                                .border(
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        width = (glowFloat / 2f).dp,
+                                        brush = Brush.horizontalGradient(
+                                            colors = listOf(shimmerColor, shimmerColorAlt, shimmerColor)
+                                        )
+                                    ),
+                                    shape = RoundedCornerShape(6.dp)
+                                )
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = deviceId,
-                                color = Color(0xFF38BDF8),
+                                color = shimmerColor,
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                 textAlign = TextAlign.Center
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         // Copy Button
                         Button(
@@ -232,9 +385,12 @@ fun ActivationBarrier(
                                 clipboard.setPrimaryClip(clip)
                                 Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                             shape = RoundedCornerShape(6.dp),
-                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .border(1.dp, Color(0xFF334155), RoundedCornerShape(6.dp)),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Row(
@@ -244,12 +400,14 @@ fun ActivationBarrier(
                                 Icon(
                                     imageVector = Icons.Default.ContentCopy,
                                     contentDescription = "Copy",
-                                    modifier = Modifier.size(16.dp)
+                                    tint = shimmerColor,
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = "ডিভাইস আইডি কপি করুন",
-                                    fontSize = 13.sp,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -257,7 +415,7 @@ fun ActivationBarrier(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Side-by-Side Admin WS & Admin TG Buttons
                 Row(
@@ -274,11 +432,11 @@ fun ActivationBarrier(
                                 Toast.makeText(context, "WhatsApp ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)), // WhatsApp Green
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)), // Deep WhatsApp Green
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp),
+                            .height(40.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
@@ -298,11 +456,11 @@ fun ActivationBarrier(
                                 Toast.makeText(context, "Telegram ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0088CC)), // Telegram Blue
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)), // Telegram Royal Blue
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp),
+                            .height(40.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
@@ -331,11 +489,11 @@ fun ActivationBarrier(
                                 Toast.makeText(context, "Telegram ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)), // Vibrant Pink/Rose Color for contrast
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)), // Darker Rose/Red
                         shape = RoundedCornerShape(6.dp),
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp),
+                            .height(40.dp),
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text(
@@ -349,12 +507,12 @@ fun ActivationBarrier(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp),
+                            .height(40.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.primary,
+                                color = shimmerColor,
                                 modifier = Modifier.size(24.dp)
                             )
                         } else {
@@ -381,12 +539,13 @@ fun ActivationBarrier(
                                     Icon(
                                         imageVector = Icons.Default.Refresh,
                                         contentDescription = "Refresh",
+                                        tint = shimmerColorAlt,
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "ভেরিফাই করুন",
-                                        fontSize = 12.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
