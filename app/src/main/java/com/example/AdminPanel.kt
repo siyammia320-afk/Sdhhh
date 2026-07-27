@@ -54,18 +54,13 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
         try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
     }
     
-    var appStatus by remember { mutableStateOf("ON") }
     var devicesList by remember { mutableStateOf<List<DeviceItem>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     
     var inputName by remember { mutableStateOf("") }
     var inputDeviceId by remember { mutableStateOf("") }
     var inputDays by remember { mutableFloatStateOf(30f) }
-    
-    var noticeText by remember { mutableStateOf("") }
-    var isSendingNotice by remember { mutableStateOf(false) }
 
-    var isLoadingStatus by remember { mutableStateOf(false) }
     var isLoadingDevices by remember { mutableStateOf(false) }
     var isSavingDevice by remember { mutableStateOf(false) }
 
@@ -80,83 +75,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
         return try {
             auth?.currentUser?.getIdToken(false)?.await()?.token ?: ""
         } catch (e: Exception) { "" }
-    }
-
-    fun loadAppStatus() {
-        isLoadingStatus = true
-        scope.launch {
-            try {
-                val token = getIdToken()
-                val client = OkHttpClient()
-                val url = "$dbBaseUrl/status.json?auth=$token"
-                val request = Request.Builder().url(url).build()
-                
-                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
-                val body = response.body?.string()?.trim() ?: ""
-                response.close()
-                
-                if (body.isNotEmpty() && body != "null") {
-                    try {
-                        val json = JSONObject(body)
-                        appStatus = json.optString("status", "ON").uppercase()
-                    } catch (e: Exception) {
-                        appStatus = body.replace("\"", "").trim().uppercase()
-                    }
-                } else {
-                    appStatus = "ON"
-                }
-            } catch (e: Exception) { } finally { isLoadingStatus = false }
-        }
-    }
-
-    fun updateAppStatus(newStatus: String) {
-        isLoadingStatus = true
-        scope.launch {
-            try {
-                val token = getIdToken()
-                val client = OkHttpClient()
-                val url = "$dbBaseUrl/status.json?auth=$token"
-                
-                val jsonPayload = JSONObject().apply { put("status", newStatus) }.toString()
-                val mediaType = "application/json; charset=utf-8".toMediaType()
-                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
-                
-                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
-                appStatus = newStatus
-                Toast.makeText(context, "App Status changed to $newStatus!", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            } finally { isLoadingStatus = false }
-        }
-    }
-
-    fun sendNotice() {
-        if (noticeText.trim().isEmpty()) {
-            Toast.makeText(context, "Enter a notice", Toast.LENGTH_SHORT).show()
-            return
-        }
-        isSendingNotice = true
-        scope.launch {
-            try {
-                val token = getIdToken()
-                val client = OkHttpClient()
-                val url = "$dbBaseUrl/notice.json?auth=$token"
-                
-                val jsonPayload = JSONObject().apply { 
-                    put("text", noticeText.trim())
-                    put("timestamp", System.currentTimeMillis())
-                }.toString()
-                
-                val mediaType = "application/json; charset=utf-8".toMediaType()
-                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
-                
-                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
-                Toast.makeText(context, "Notice Sent!", Toast.LENGTH_SHORT).show()
-                noticeText = ""
-            } catch (e: Exception) {
-                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            } finally { isSendingNotice = false }
-        }
     }
 
     fun loadDevices() {
@@ -293,7 +211,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     }
 
     LaunchedEffect(Unit) {
-        loadAppStatus()
         loadDevices()
     }
 
@@ -395,46 +312,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. Notice System
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.NotificationsActive, contentDescription = "Notice", tint = Color(0xFFF59E0B), modifier = Modifier.size(24.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Global Notice System", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(14.dp))
-                            OutlinedTextField(
-                                value = noticeText,
-                                onValueChange = { noticeText = it },
-                                placeholder = { Text("Write a notice to show to all users...") },
-                                modifier = Modifier.fillMaxWidth().height(100.dp),
-                                maxLines = 4,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFFF59E0B), unfocusedBorderColor = Color(0xFF334155)
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Button(
-                                onClick = { sendNotice() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                enabled = !isSendingNotice
-                            ) {
-                                if (isSendingNotice) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                else Text("Send Notice", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-
                 // 2. Add Device
                 item {
                     Card(
@@ -484,41 +361,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                     }
                 }
                 
-                // 3. App Power Status
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.PowerSettingsNew, contentDescription = "Power", tint = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFFEF4444), modifier = Modifier.size(24.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("APK Power Control", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                                }
-                                if (isLoadingStatus) CircularProgressIndicator(color = Color(0xFF10B981), modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            }
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Button(
-                                    onClick = { updateAppStatus("ON") },
-                                    colors = ButtonDefaults.buttonColors(containerColor = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFF1E293B), contentColor = Color.White),
-                                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f).height(48.dp),
-                                    border = if (appStatus == "ON") null else BorderStroke(1.dp, Color(0xFF334155))
-                                ) { Text("ON", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                                Button(
-                                    onClick = { updateAppStatus("OFF") },
-                                    colors = ButtonDefaults.buttonColors(containerColor = if (appStatus == "OFF") Color(0xFFEF4444) else Color(0xFF1E293B), contentColor = Color.White),
-                                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f).height(48.dp),
-                                    border = if (appStatus == "OFF") null else BorderStroke(1.dp, Color(0xFF334155))
-                                ) { Text("OFF", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
-                            }
-                        }
-                    }
-                }
-
                 // 4. Search & List Section
                 item {
                     Column(modifier = Modifier.fillMaxWidth()) {

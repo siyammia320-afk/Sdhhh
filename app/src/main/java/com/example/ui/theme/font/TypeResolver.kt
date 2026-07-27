@@ -153,64 +153,12 @@ fun ActivationBarrier(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var currentUserName by remember { mutableStateOf("") }
     var currentUserExpire by remember { mutableStateOf("") }
-    var isAppDisabled by remember { mutableStateOf(false) }
 
     // Static visual definitions to completely prevent lagging/phone freezing
     val scalePulse = 1.0f
     val glowFloat = 1.5f
     val shimmerColor = Color(0xFF38BDF8) // Elegant Cyan
     val shimmerColorAlt = Color(0xFF8B5CF6) // Royal Violet
-
-    // Helper to check app control status from Firebase Realtime Database
-    suspend fun checkAppControlStatus() {
-        try {
-            val authInstance = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-            val user = authInstance?.currentUser
-            val tokenResult = user?.getIdToken(false)?.await()
-            val idToken = tokenResult?.token ?: ""
-            
-            val client = okhttp3.OkHttpClient.Builder()
-                .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-                .build()
-            
-            val url = "https://my-original-apk-default-rtdb.firebaseio.com/status.json" + 
-                    if (idToken.isNotEmpty()) "?auth=$idToken" else ""
-                    
-            val request = okhttp3.Request.Builder()
-                .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-                .header("Cache-Control", "no-cache")
-                .build()
-                
-            val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                client.newCall(request).execute()
-            }
-            val responseBody = response.body?.string()?.trim()
-            response.close()
-            
-            if (responseBody != null && responseBody.isNotEmpty() && responseBody != "null") {
-                var isOff = false
-                try {
-                    val jsonObj = org.json.JSONObject(responseBody)
-                    val statusValue = jsonObj.optString("status", "").trim().uppercase()
-                    if (statusValue == "OFF") {
-                        isOff = true
-                    }
-                } catch (je: Exception) {
-                    val cleanText = responseBody.replace("\"", "").trim().uppercase()
-                    if (cleanText == "OFF") {
-                        isOff = true
-                    }
-                }
-                isAppDisabled = isOff
-            } else {
-                isAppDisabled = false
-            }
-        } catch (e: Exception) {
-            // Keep current status on network error
-        }
-    }
 
     // Helper fun to check authorization and expiration from Firebase Realtime Database
     suspend fun checkAuthStatus() {
@@ -377,88 +325,16 @@ fun ActivationBarrier(
     // Auto-check on launch and then loop every 5 seconds
     LaunchedEffect(Unit) {
         isLoading = true
-        checkAppControlStatus()
         checkAuthStatus()
         isLoading = false
         
         while (true) {
             kotlinx.coroutines.delay(5000)
-            checkAppControlStatus()
             checkAuthStatus()
         }
     }
 
-    if (isAppDisabled) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF090D1A), // Ultra Deep Slate/Blue
-                            Color(0xFF030712)  // Deep Black
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .widthIn(max = 420.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(Color(0xFFEF4444).copy(alpha = 0.15f), RoundedCornerShape(36.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Disabled",
-                        tint = Color(0xFFEF4444),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                Text(
-                    text = "Application is Temporarily Disabled",
-                    color = Color.White,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                Text(
-                    text = "The administrator has temporarily disabled the application. Please try again later or contact support.",
-                    color = Color.LightGray,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center,
-                    lineHeight = 18.sp
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
-                Button(
-                    onClick = {
-                        FirebaseAuth.getInstance().signOut()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                ) {
-                    Text("Log Out", color = Color.White, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    } else if (isAuthorized == true) {
+    if (isAuthorized == true) {
         onGranted()
     } else {
         Box(
