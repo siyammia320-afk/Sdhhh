@@ -143,7 +143,7 @@ fun ActivationBarrier(
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
             
-            val url = "https://test-app-55616-default-rtdb.firebaseio.com/status.json" + 
+            val url = "https://my-original-apk-default-rtdb.firebaseio.com/status.json" + 
                     if (idToken.isNotEmpty()) "?auth=$idToken" else ""
                     
             val request = okhttp3.Request.Builder()
@@ -193,7 +193,7 @@ fun ActivationBarrier(
                 .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
                 
-            val url = "https://test-app-55616-default-rtdb.firebaseio.com/devices.json" + 
+            val url = "https://my-original-apk-default-rtdb.firebaseio.com/devices.json" + 
                     if (idToken.isNotEmpty()) "?auth=$idToken" else ""
                     
             val request = okhttp3.Request.Builder()

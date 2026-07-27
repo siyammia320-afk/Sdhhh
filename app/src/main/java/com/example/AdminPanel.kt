@@ -59,7 +59,7 @@ fun AdminPanel() {
     var isLoadingDevices by remember { mutableStateOf(false) }
     var isSavingDevice by remember { mutableStateOf(false) }
 
-    val dbBaseUrl = "https://test-app-55616-default-rtdb.firebaseio.com"
+    val dbBaseUrl = "https://my-original-apk-default-rtdb.firebaseio.com"
 
     // Helper to get ID Token
     suspend fun getIdToken(): String {
