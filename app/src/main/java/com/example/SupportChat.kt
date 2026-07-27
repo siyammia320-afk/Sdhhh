@@ -44,7 +44,7 @@ suspend fun fetchMessages(userId: String): List<ChatMessage> {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyList()
         val client = OkHttpClient()
-        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/\$userId.json?auth=\$token"
+        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
         val body = response.body?.string()?.trim() ?: ""
@@ -82,7 +82,7 @@ suspend fun fetchAllConversations(): List<String> {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyList()
         val client = OkHttpClient()
-        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages.json?shallow=true&auth=\$token"
+        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages.json?shallow=true&auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
         val body = response.body?.string()?.trim() ?: ""
@@ -110,7 +110,7 @@ suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean) {
         val senderName = auth.currentUser?.displayName ?: "Unknown"
         val client = OkHttpClient()
         
-        val newMsgRef = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/\$userId.json?auth=\$token"
+        val newMsgRef = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
         // Generate simple ID by posting
         val jsonPayload = JSONObject().apply {
             put("text", text)
@@ -293,7 +293,7 @@ fun AdminSupportConversationsDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
                                 ) {
-                                    Text("User ID: \$uid", color = Color.White, modifier = Modifier.padding(16.dp))
+                                    Text("User ID: $uid", color = Color.White, modifier = Modifier.padding(16.dp))
                                 }
                             }
                         }
