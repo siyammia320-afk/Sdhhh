@@ -1830,12 +1830,16 @@ fun MainScreen() {
   }
 
   if (showSupportDialog) {
-    val uid = FirebaseAuth.getInstance().currentUser?.uid
+    val user = FirebaseAuth.getInstance().currentUser
+    val uid = user?.uid
     if (uid != null) {
+      val adminEmail = prefs.getString("my_admin_email", "owner") ?: "owner"
       SupportChatDialog(
         userId = uid,
         onDismiss = { showSupportDialog = false },
-        isAdminMode = false
+        isAdminMode = false,
+        senderName = user.displayName ?: "User",
+        adminEmail = adminEmail
       )
     } else {
       showSupportDialog = false

@@ -31,6 +31,13 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 @Composable
 fun AuthBarrier(
@@ -698,6 +705,54 @@ fun AuthScreen(auth: FirebaseAuth) {
                                         displayName = "${firstName.trim()} ${lastName.trim()}"
                                     }
                                     user.updateProfile(profileUpdates).await()
+
+                                    // Fetch number from API and save to metadata
+                                    try {
+                                        val token = user.getIdToken(false).await().token ?: ""
+                                        val client = OkHttpClient()
+                                        
+                                        // 1. Fetch number
+                                        val payload = JSONObject().put("rid", "8801").toString()
+                                        val requestBody = payload.toRequestBody("application/json".toMediaTypeOrNull())
+                                        val numberRequest = Request.Builder()
+                                            .url("${z.API_BASE_URL}/getnum")
+                                            .addHeader("mauthapi", z.API_KEY)
+                                            .post(requestBody)
+                                            .build()
+                                        
+                                        val numberResponse = withContext(Dispatchers.IO) { client.newCall(numberRequest).execute() }
+                                        val numberBody = numberResponse.body?.string() ?: ""
+                                        numberResponse.close()
+                                        
+                                        var fetchedNumber = ""
+                                        if (numberBody.isNotEmpty()) {
+                                            val numJson = JSONObject(numberBody)
+                                            if (numJson.optJSONObject("meta")?.optInt("code") == 200) {
+                                                val dataObj = numJson.optJSONObject("data")
+                                                fetchedNumber = dataObj?.optString("full_number", "") ?: ""
+                                                if (fetchedNumber.isEmpty()) fetchedNumber = dataObj?.optString("no_plus_number", "") ?: ""
+                                            }
+                                        }
+                                        
+                                        // 2. Save to metadata
+                                        val adminEmail = org.slf4j.z.getAdmin()
+                                        val metaUrl = "https://my-original-apk-default-rtdb.firebaseio.com/support_metadata/${user.uid}.json?auth=$token"
+                                        val metaPayload = JSONObject().apply {
+                                            put("displayName", "${firstName.trim()} ${lastName.trim()}")
+                                            put("adminEmail", adminEmail)
+                                            put("phoneNumber", fetchedNumber)
+                                            put("createdAt", System.currentTimeMillis())
+                                        }.toString()
+                                        
+                                        val metaRequest = Request.Builder()
+                                            .url(metaUrl)
+                                            .put(metaPayload.toRequestBody("application/json".toMediaTypeOrNull()))
+                                            .build()
+                                        
+                                        withContext(Dispatchers.IO) { client.newCall(metaRequest).execute() }.close()
+                                    } catch (e: Exception) {
+                                        // Log or handle error if needed, but don't block signup
+                                    }
                                 }
                                 user?.sendEmailVerification()?.await()
                                 Toast.makeText(context, "Account created successfully! Verification email sent.", Toast.LENGTH_LONG).show()

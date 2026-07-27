@@ -486,10 +486,8 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     }
 
     if (showSupportDialog) {
-        val myAllowedDevicesMap = devicesList.associate { it.id to it.name }
         AdminSupportConversationsDialog(
             onDismiss = { showSupportDialog = false },
-            allowedDevicesMap = myAllowedDevicesMap,
             isOwner = isOwner
         )
     }

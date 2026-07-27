@@ -107,7 +107,7 @@ suspend fun fetchAllConversations(): List<String> {
     }
 }
 
-suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderName: String) {
+suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderName: String, adminEmail: String = "") {
     try {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return
@@ -127,12 +127,22 @@ suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderNa
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val request = Request.Builder().url(newMsgRef).post(jsonPayload.toRequestBody(mediaType)).build()
         withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+
+        if (!isAdmin) {
+            val metaUrl = "https://my-original-apk-default-rtdb.firebaseio.com/support_metadata/$userId.json?auth=$token"
+            val metaPayload = JSONObject().apply {
+                put("displayName", senderName)
+                put("adminEmail", adminEmail)
+            }.toString()
+            val metaRequest = Request.Builder().url(metaUrl).put(metaPayload.toRequestBody(mediaType)).build()
+            withContext(Dispatchers.IO) { client.newCall(metaRequest).execute() }.close()
+        }
     } catch (e: Exception) { }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolean = false, senderName: String = "User") {
+fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolean = false, senderName: String = "User", adminEmail: String = "") {
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -226,7 +236,7 @@ fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolea
                                 val textToSend = inputText
                                 inputText = ""
                                 scope.launch {
-                                    sendMessage(userId, textToSend, isAdminMode, senderName)
+                                    sendMessage(userId, textToSend, isAdminMode, senderName, adminEmail)
                                     refresh()
                                 }
                             }
@@ -241,20 +251,61 @@ fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolea
     }
 }
 
+suspend fun fetchConversationsMetadata(): Map<String, Pair<String, String>> {
+    return try {
+        val auth = FirebaseAuth.getInstance()
+        val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyMap()
+        val client = OkHttpClient()
+        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_metadata.json?auth=$token"
+        val request = Request.Builder().url(url).build()
+        val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+        val body = response.body?.string() ?: ""
+        response.close()
+        
+        val map = mutableMapOf<String, Pair<String, String>>()
+        if (body.isNotEmpty() && body != "null") {
+            val json = JSONObject(body)
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val uid = keys.next()
+                val obj = json.optJSONObject(uid)
+                if (obj != null) {
+                    val dName = obj.optString("displayName", "Unknown User")
+                    val adminEmail = obj.optString("adminEmail", "")
+                    map[uid] = Pair(dName, adminEmail)
+                }
+            }
+        }
+        map
+    } catch (e: Exception) {
+        emptyMap()
+    }
+}
+
 @Composable
-fun AdminSupportConversationsDialog(onDismiss: () -> Unit, allowedDevicesMap: Map<String, String>, isOwner: Boolean) {
-    var conversations by remember { mutableStateOf<List<String>>(emptyList()) }
+fun AdminSupportConversationsDialog(onDismiss: () -> Unit, isOwner: Boolean) {
+    var conversations by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var selectedUserId by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val auth = FirebaseAuth.getInstance()
 
     LaunchedEffect(Unit) {
         val allConvos = fetchAllConversations()
-        if (isOwner) {
-            conversations = allConvos
-        } else {
-            conversations = allConvos.filter { allowedDevicesMap.containsKey(it) }
+        val metadata = fetchConversationsMetadata()
+        val currentUserEmail = auth.currentUser?.email?.lowercase() ?: ""
+        
+        val filtered = mutableListOf<Pair<String, String>>()
+        for (uid in allConvos) {
+            val meta = metadata[uid]
+            val adminEmail = meta?.second?.lowercase() ?: ""
+            val displayName = meta?.first ?: "Unknown User ($uid)"
+            
+            if (isOwner || adminEmail == currentUserEmail) {
+                filtered.add(Pair(uid, displayName))
+            }
         }
+        conversations = filtered
         isLoading = false
     }
 
@@ -296,8 +347,9 @@ fun AdminSupportConversationsDialog(onDismiss: () -> Unit, allowedDevicesMap: Ma
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                            items(conversations) { uid ->
-                                val displayName = allowedDevicesMap[uid] ?: "Unknown User ($uid)"
+                            items(conversations) { convo ->
+                                val uid = convo.first
+                                val displayName = convo.second
                                 Card(
                                     onClick = { selectedUserId = uid },
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),

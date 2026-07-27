@@ -124,9 +124,11 @@ fun ActivationBarrier(
 
                     if (!saBlocked && !saIsExpired) {
                         isSubAdminVerified = true
+                        /*
                         if (saApi.isNotEmpty()) {
                             com.example.z.API_KEY = saApi
                         }
+                        */
                     }
                 }
             } catch (e: Exception) {}
@@ -225,6 +227,8 @@ fun ActivationBarrier(
                 if (found) {
                     currentUserName = uName
                     currentUserExpire = expDateStr
+                    val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                    prefs.edit().putString("my_admin_email", dApprovedBy).apply()
                 }
                 
                 if (found && expDateStr.isNotEmpty() && !isBanned) {
@@ -262,9 +266,11 @@ fun ActivationBarrier(
                         val saExpire = subJson.optString("expire", "")
                         val saApi = subJson.optString("apiKey", "")
 
+                        /*
                         if (saApi.isNotEmpty()) {
                             com.example.z.API_KEY = saApi
                         }
+                        */
 
                         val saExpireDate = parseExpirationDate(saExpire)
                         var saIsExpired = false
