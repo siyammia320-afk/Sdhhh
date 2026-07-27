@@ -41,7 +41,8 @@ data class DeviceItem(
     val id: String,
     val name: String,
     val expire: String,
-    val isBanned: Boolean = false
+    val isBanned: Boolean = false,
+    val approvedBy: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -181,14 +182,16 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                         var dName = ""
                         var dExpire = ""
                         var dBanned = false
+                        var dApprovedBy = ""
                         if (valueObj is JSONObject) {
                             dName = valueObj.optString("name", "")
                             dExpire = valueObj.optString("expire", "")
                             dBanned = valueObj.optBoolean("banned", false)
+                            dApprovedBy = valueObj.optString("approvedBy", "")
                         } else {
                             dExpire = valueObj?.toString() ?: ""
                         }
-                        newList.add(DeviceItem(id = key, name = dName, expire = dExpire, isBanned = dBanned))
+                        newList.add(DeviceItem(id = key, name = dName, expire = dExpire, isBanned = dBanned, approvedBy = dApprovedBy))
                     }
                 }
                 devicesList = newList.sortedBy { it.name.lowercase() }
@@ -216,10 +219,17 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                 val client = OkHttpClient()
                 val url = "$dbBaseUrl/devices/$finalId.json?auth=$token"
                 
+                val currentUserEmail = auth?.currentUser?.email?.lowercase() ?: ""
                 val jsonPayload = JSONObject().apply {
                     put("name", finalName)
                     put("expire", expireDate)
                     put("banned", isBanned)
+                    if (!isEdit) {
+                        put("approvedBy", currentUserEmail)
+                    } else {
+                        // Preserve original approvedBy during edit, or update it
+                        put("approvedBy", editDeviceItem?.approvedBy ?: currentUserEmail)
+                    }
                 }.toString()
                 
                 val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -287,15 +297,22 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
         loadDevices()
     }
 
-    val filteredDevices = devicesList.filter {
-        it.id.lowercase().contains(searchQuery.lowercase()) ||
-        it.name.lowercase().contains(searchQuery.lowercase())
+    val adminEmail = org.slf4j.z.getAdmin()
+    val isOwner = auth?.currentUser?.email?.lowercase() == adminEmail
+    val myEmail = auth?.currentUser?.email?.lowercase() ?: ""
+
+    val filteredDevices = devicesList.filter { device ->
+        (isOwner || device.approvedBy.lowercase() == myEmail) &&
+        (device.id.lowercase().contains(searchQuery.lowercase()) ||
+        device.name.lowercase().contains(searchQuery.lowercase()))
     }
 
-    val totalApproved = devicesList.count { !it.isBanned }
-    val totalBanned = devicesList.count { it.isBanned }
+    val visibleDevicesCount = devicesList.count { isOwner || it.approvedBy.lowercase() == myEmail }
+    val totalApproved = devicesList.count { (!it.isBanned) && (isOwner || it.approvedBy.lowercase() == myEmail) }
+    val totalBanned = devicesList.count { it.isBanned && (isOwner || it.approvedBy.lowercase() == myEmail) }
 
     var showSupportDialog by remember { mutableStateOf(false) }
+    var showSubAdminsDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -316,6 +333,14 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                     Text("Device & App Control Center", color = Color.Gray, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (isOwner) {
+                        IconButton(
+                            onClick = { showSubAdminsDialog = true },
+                            modifier = Modifier.background(Color(0xFFEAB308).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFEAB308).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(Icons.Default.ManageAccounts, contentDescription = "Manage Sub-Admins", tint = Color(0xFFEAB308))
+                        }
+                    }
                     IconButton(
                         onClick = { showSupportDialog = true },
                         modifier = Modifier.background(Color(0xFF8B5CF6).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
@@ -619,6 +644,15 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     }
 
     if (showSupportDialog) {
-        AdminSupportConversationsDialog(onDismiss = { showSupportDialog = false })
+        val myAllowedDevicesMap = devicesList.associate { it.id to it.name }
+        AdminSupportConversationsDialog(
+            onDismiss = { showSupportDialog = false },
+            allowedDevicesMap = myAllowedDevicesMap,
+            isOwner = isOwner
+        )
+    }
+
+    if (showSubAdminsDialog) {
+        SubAdminManagerDialog(onDismiss = { showSubAdminsDialog = false })
     }
 }

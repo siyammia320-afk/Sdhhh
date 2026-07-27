@@ -1934,7 +1934,6 @@ fun MainScreen() {
         isAdminMode = false
       )
     } else {
-      // User not logged in (fallback)
       showSupportDialog = false
     }
   }

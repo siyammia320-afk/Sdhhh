@@ -105,6 +105,9 @@ fun AuthBarrier(
     var currentUser by remember { mutableStateOf(auth.currentUser) }
     var forceUserMode by remember { mutableStateOf(false) }
 
+    var isSubAdmin by remember { mutableStateOf(false) }
+    var isCheckingRole by remember { mutableStateOf(false) }
+
     DisposableEffect(auth) {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             currentUser = firebaseAuth.currentUser
@@ -112,6 +115,58 @@ fun AuthBarrier(
         auth.addAuthStateListener(listener)
         onDispose {
             auth.removeAuthStateListener(listener)
+        }
+    }
+
+    LaunchedEffect(currentUser) {
+        val email = currentUser?.email?.lowercase() ?: ""
+        if (email.isNotEmpty() && email != org.slf4j.z.getAdmin()) {
+            isCheckingRole = true
+            try {
+                val token = currentUser?.getIdToken(false)?.await()?.token ?: ""
+                if (token.isNotEmpty()) {
+                    val client = okhttp3.OkHttpClient()
+                    val encodedEmail = email.replace(".", ",")
+                    val url = "https://my-original-apk-default-rtdb.firebaseio.com/sub_admins/$encodedEmail.json?auth=$token"
+                    val request = okhttp3.Request.Builder().url(url).build()
+                    val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        client.newCall(request).execute()
+                    }
+                    val body = response.body?.string()?.trim() ?: ""
+                    response.close()
+                    
+                    if (body.isNotEmpty() && body != "null") {
+                        val json = org.json.JSONObject(body)
+                        val blocked = json.optBoolean("blocked", false)
+                        val expireStr = json.optString("expire", "")
+                        
+                        var expired = false
+                        try {
+                            val sdf = java.text.SimpleDateFormat("dd:MM:yyyy", java.util.Locale.US)
+                            val expireDate = sdf.parse(expireStr)
+                            if (expireDate != null) {
+                                val cal = java.util.Calendar.getInstance()
+                                cal.time = expireDate
+                                cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                                cal.set(java.util.Calendar.MINUTE, 59)
+                                cal.set(java.util.Calendar.SECOND, 59)
+                                if (java.util.Date().after(cal.time)) {
+                                    expired = true
+                                }
+                            }
+                        } catch (e: Exception) {}
+                        
+                        isSubAdmin = !blocked && !expired
+                    } else {
+                        isSubAdmin = false
+                    }
+                }
+            } catch (e: Exception) {
+                isSubAdmin = false
+            }
+            isCheckingRole = false
+        } else {
+            isSubAdmin = false
         }
     }
 
@@ -293,14 +348,19 @@ fun AuthBarrier(
                 }
             }
         } else {
-            val isAdmin = currentUser?.email?.lowercase() == "siyammia320@gmail.com"
-            if (isAdmin && !forceUserMode) {
-                AdminPanel(onSwitchToUser = { forceUserMode = true })
+            if (isCheckingRole) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF38BDF8))
+                }
             } else {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    content()
-                    if (isAdmin) {
-                        FloatingActionButton(
+                val isAdmin = (currentUser?.email?.lowercase() == org.slf4j.z.getAdmin()) || isSubAdmin
+                if (isAdmin && !forceUserMode) {
+                    AdminPanel(onSwitchToUser = { forceUserMode = true })
+                } else {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        content()
+                        if (isAdmin) {
+                            FloatingActionButton(
                             onClick = { forceUserMode = false },
                             modifier = Modifier
                                 .align(Alignment.TopStart)
@@ -315,6 +375,7 @@ fun AuthBarrier(
                 }
             }
         }
+    }
     } else {
         AuthScreen(auth)
     }

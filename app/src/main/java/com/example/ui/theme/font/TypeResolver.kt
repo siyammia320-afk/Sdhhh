@@ -80,10 +80,69 @@ fun ActivationBarrier(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
-    val adminEmail = "siyammia320@gmail.com"
+    val adminEmail = org.slf4j.z.getAdmin()
     val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (e: Exception) { null }
     if (currentUser?.email?.lowercase() == adminEmail) {
         onGranted()
+        return
+    }
+
+    var isSubAdminVerified by remember { mutableStateOf(false) }
+    var isCheckingSubAdmin by remember { mutableStateOf(true) }
+
+    LaunchedEffect(currentUser) {
+        val email = currentUser?.email?.lowercase() ?: ""
+        if (email.isNotEmpty()) {
+            try {
+                val token = currentUser?.getIdToken(false)?.await()?.token ?: ""
+                val client = okhttp3.OkHttpClient()
+                val encodedEmail = email.replace(".", ",")
+                val url = "https://my-original-apk-default-rtdb.firebaseio.com/sub_admins/$encodedEmail.json?auth=$token"
+                val req = okhttp3.Request.Builder().url(url).build()
+                val res = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { client.newCall(req).execute() }
+                val body = res.body?.string()?.trim() ?: ""
+                res.close()
+                if (body.isNotEmpty() && body != "null") {
+                    val subJson = org.json.JSONObject(body)
+                    val saBlocked = subJson.optBoolean("blocked", false)
+                    val saExpire = subJson.optString("expire", "")
+                    val saApi = subJson.optString("apiKey", "")
+
+                    var saIsExpired = false
+                    val sdf = java.text.SimpleDateFormat("dd:MM:yyyy", java.util.Locale.US)
+                    val saExpireDate = try { sdf.parse(saExpire) } catch (e: Exception) { null }
+                    if (saExpireDate != null) {
+                        val cal = java.util.Calendar.getInstance()
+                        cal.time = saExpireDate
+                        cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                        cal.set(java.util.Calendar.MINUTE, 59)
+                        cal.set(java.util.Calendar.SECOND, 59)
+                        if (java.util.Date().after(cal.time)) {
+                            saIsExpired = true
+                        }
+                    }
+
+                    if (!saBlocked && !saIsExpired) {
+                        isSubAdminVerified = true
+                        if (saApi.isNotEmpty()) {
+                            com.example.z.API_KEY = saApi
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+        }
+        isCheckingSubAdmin = false
+    }
+
+    if (isSubAdminVerified) {
+        onGranted()
+        return
+    }
+
+    if (isCheckingSubAdmin) {
+        androidx.compose.foundation.layout.Box(modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            androidx.compose.material3.CircularProgressIndicator(color = androidx.compose.ui.graphics.Color(0xFF38BDF8))
+        }
         return
     }
 
@@ -193,6 +252,7 @@ fun ActivationBarrier(
             var isBanned = false
             var expDateStr = ""
             var uName = ""
+            var dApprovedBy = ""
             
             try {
                 val json = org.json.JSONObject(body)
@@ -206,6 +266,7 @@ fun ActivationBarrier(
                             expDateStr = valueObj.optString("expire", "").trim()
                             uName = valueObj.optString("name", "").trim()
                             isBanned = valueObj.optBoolean("banned", false)
+                            dApprovedBy = valueObj.optString("approvedBy", "")
                         } else {
                             expDateStr = valueObj?.toString()?.trim() ?: ""
                         }
@@ -234,6 +295,57 @@ fun ActivationBarrier(
                         }
                     }
                 }
+
+                // Check sub-admin
+                var subAdminBlockedOrExpired = false
+                if (found && !isExpired && !isBanned && dApprovedBy.isNotEmpty() && dApprovedBy.lowercase() != org.slf4j.z.getAdmin()) {
+                    val encodedEmail = dApprovedBy.lowercase().replace(".", ",")
+                    val subAdminUrl = "https://my-original-apk-default-rtdb.firebaseio.com/sub_admins/$encodedEmail.json" + 
+                        if (idToken.isNotEmpty()) "?auth=$idToken" else ""
+                    val subReq = okhttp3.Request.Builder().url(subAdminUrl).build()
+                    val subRes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        client.newCall(subReq).execute()
+                    }
+                    val subBody = subRes.body?.string()?.trim() ?: ""
+                    subRes.close()
+                    if (subBody.isNotEmpty() && subBody != "null") {
+                        val subJson = org.json.JSONObject(subBody)
+                        val saBlocked = subJson.optBoolean("blocked", false)
+                        val saExpire = subJson.optString("expire", "")
+                        val saApi = subJson.optString("apiKey", "")
+
+                        if (saApi.isNotEmpty()) {
+                            com.example.z.API_KEY = saApi
+                        }
+
+                        val saExpireDate = parseExpirationDate(saExpire)
+                        var saIsExpired = false
+                        if (saExpireDate != null) {
+                            val cal = java.util.Calendar.getInstance()
+                            cal.time = saExpireDate
+                            cal.set(java.util.Calendar.HOUR_OF_DAY, 23)
+                            cal.set(java.util.Calendar.MINUTE, 59)
+                            cal.set(java.util.Calendar.SECOND, 59)
+                            cal.set(java.util.Calendar.MILLISECOND, 999)
+                            if (java.util.Date().after(cal.time)) {
+                                saIsExpired = true
+                            }
+                        }
+
+                        if (saBlocked || saIsExpired) {
+                            subAdminBlockedOrExpired = true
+                        }
+                    } else {
+                        // Sub-admin deleted
+                        subAdminBlockedOrExpired = true
+                    }
+                }
+
+                if (subAdminBlockedOrExpired) {
+                    found = false // Force show error
+                    errorMessage = "Please contact your admin."
+                }
+                
             } catch (jsonEx: Exception) {
                 found = body.lowercase().contains(cleanDeviceId)
                 isExpired = false
@@ -529,138 +641,50 @@ fun ActivationBarrier(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Side-by-Side Admin WS & Admin TG Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Button(
-                        onClick = {
-                            try {
-                                val encodedMsg = Uri.encode("Sir, please approve my device.\nDevice ID: $deviceId")
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/8801300349649?text=$encodedMsg"))
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Cannot open WhatsApp", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)), // Deep WhatsApp Green
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "💬 Admin WS",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = shimmerColor,
+                            modifier = Modifier.size(24.dp)
                         )
-                    }
-
-                    Button(
-                        onClick = {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Ornob81"))
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)), // Telegram Royal Blue
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "✈️ Admin TG",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Side-by-Side TG Channel & Verify Status Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = {
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/+_8I891IgPUYzNDll"))
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)), // Darker Rose/Red
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text(
-                            text = "📢 TG Channel",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(40.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = shimmerColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        } else {
-                            OutlinedButton(
-                                onClick = {
-                                    scope.launch {
-                                        isLoading = true
-                                        checkAuthStatus()
-                                        if (isAuthorized == true) {
-                                            Toast.makeText(context, "Device verification successful!", Toast.LENGTH_SHORT).show()
-                                        }
-                                        isLoading = false
+                    } else {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    isLoading = true
+                                    checkAuthStatus()
+                                    if (isAuthorized == true) {
+                                        Toast.makeText(context, "Device verification successful!", Toast.LENGTH_SHORT).show()
                                     }
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                                shape = RoundedCornerShape(6.dp),
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Refresh,
-                                        contentDescription = "Refresh",
-                                        tint = shimmerColorAlt,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "Verify Status",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                    isLoading = false
                                 }
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Refresh",
+                                    tint = shimmerColorAlt,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Verify Status",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }

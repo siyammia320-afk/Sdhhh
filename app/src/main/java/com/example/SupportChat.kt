@@ -47,6 +47,11 @@ suspend fun fetchMessages(userId: String): List<ChatMessage> {
         val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+        if (!response.isSuccessful) {
+            withContext(Dispatchers.Main) {
+                // Not ideal to use context here without passing it, but let's just log it or return empty
+            }
+        }
         val body = response.body?.string()?.trim() ?: ""
         response.close()
         
@@ -102,12 +107,11 @@ suspend fun fetchAllConversations(): List<String> {
     }
 }
 
-suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean) {
+suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderName: String) {
     try {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return
         val currentUserId = auth.currentUser?.uid ?: return
-        val senderName = auth.currentUser?.displayName ?: "Unknown"
         val client = OkHttpClient()
         
         val newMsgRef = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
@@ -128,7 +132,7 @@ suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolean = false) {
+fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolean = false, senderName: String = "User") {
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
@@ -222,7 +226,7 @@ fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolea
                                 val textToSend = inputText
                                 inputText = ""
                                 scope.launch {
-                                    sendMessage(userId, textToSend, isAdminMode)
+                                    sendMessage(userId, textToSend, isAdminMode, senderName)
                                     refresh()
                                 }
                             }
@@ -238,14 +242,19 @@ fun SupportChatDialog(userId: String, onDismiss: () -> Unit, isAdminMode: Boolea
 }
 
 @Composable
-fun AdminSupportConversationsDialog(onDismiss: () -> Unit) {
+fun AdminSupportConversationsDialog(onDismiss: () -> Unit, allowedDevicesMap: Map<String, String>, isOwner: Boolean) {
     var conversations by remember { mutableStateOf<List<String>>(emptyList()) }
     var selectedUserId by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        conversations = fetchAllConversations()
+        val allConvos = fetchAllConversations()
+        if (isOwner) {
+            conversations = allConvos
+        } else {
+            conversations = allConvos.filter { allowedDevicesMap.containsKey(it) }
+        }
         isLoading = false
     }
 
@@ -288,12 +297,13 @@ fun AdminSupportConversationsDialog(onDismiss: () -> Unit) {
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                             items(conversations) { uid ->
+                                val displayName = allowedDevicesMap[uid] ?: "Unknown User ($uid)"
                                 Card(
                                     onClick = { selectedUserId = uid },
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B))
                                 ) {
-                                    Text("User ID: $uid", color = Color.White, modifier = Modifier.padding(16.dp))
+                                    Text(displayName, color = Color.White, modifier = Modifier.padding(16.dp))
                                 }
                             }
                         }
