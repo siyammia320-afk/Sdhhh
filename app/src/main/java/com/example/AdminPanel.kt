@@ -44,7 +44,13 @@ data class DeviceItem(
 fun AdminPanel() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val auth = remember { FirebaseAuth.getInstance() }
+    val auth = remember {
+        try {
+            FirebaseAuth.getInstance()
+        } catch (e: Exception) {
+            null
+        }
+    }
     
     var appStatus by remember { mutableStateOf("ON") }
     var devicesList by remember { mutableStateOf<List<DeviceItem>>(emptyList()) }
@@ -64,7 +70,7 @@ fun AdminPanel() {
     // Helper to get ID Token
     suspend fun getIdToken(): String {
         return try {
-            auth.currentUser?.getIdToken(false)?.await()?.token ?: ""
+            auth?.currentUser?.getIdToken(false)?.await()?.token ?: ""
         } catch (e: Exception) {
             ""
         }
@@ -298,7 +304,7 @@ fun AdminPanel() {
                 
                 IconButton(
                     onClick = {
-                        auth.signOut()
+                        auth?.signOut()
                     },
                     modifier = Modifier
                         .background(Color(0xFF1E293B), RoundedCornerShape(10.dp))

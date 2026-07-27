@@ -33,11 +33,27 @@ fun AuthBarrier(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var initError by remember { mutableStateOf<String?>(null) }
     val auth = remember {
         try {
             FirebaseAuth.getInstance()
         } catch (e: Exception) {
-            null
+            try {
+                if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
+                    val options = com.google.firebase.FirebaseOptions.Builder()
+                        .setApplicationId("1:171803187901:android:06f962b35043d369bcf5d4")
+                        .setApiKey("AIzaSyDoegs-mez3YrhxM_uzx6Q6vKqifR5FXYQ")
+                        .setDatabaseUrl("https://my-original-apk-default-rtdb.firebaseio.com")
+                        .setProjectId("my-original-apk")
+                        .setStorageBucket("my-original-apk.firebasestorage.app")
+                        .build()
+                    com.google.firebase.FirebaseApp.initializeApp(context, options)
+                }
+                FirebaseAuth.getInstance()
+            } catch (innerEx: Exception) {
+                initError = innerEx.localizedMessage ?: innerEx.toString()
+                null
+            }
         }
     }
 
@@ -48,14 +64,35 @@ fun AuthBarrier(
                 .background(Color(0xFF090D1A)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "ফায়ারবেস অথেনটিকেশন ইনিশিয়ালাইজ করতে ব্যর্থ হয়েছে।\nদয়া করে গুগল প্লে সার্ভিস সচল আছে কিনা তা চেক করুন।",
-                color = Color.Red,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(24.dp),
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(
+                    text = "ফায়ারবেস অথেনটিকেশন ইনিশিয়ালাইজ করতে ব্যর্থ হয়েছে।",
+                    color = Color.Red,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                if (initError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Error: $initError",
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        fontSize = 12.sp
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "দয়া করে গুগল প্লে সার্ভিস সচল আছে কিনা তা চেক করুন।",
+                    color = Color.LightGray,
+                    textAlign = TextAlign.Center,
+                    fontSize = 14.sp
+                )
+            }
         }
         return
     }

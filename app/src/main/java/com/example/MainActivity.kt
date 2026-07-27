@@ -649,7 +649,20 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     try {
-      FirebaseApp.initializeApp(this)
+      if (FirebaseApp.getApps(this).isEmpty()) {
+        try {
+          FirebaseApp.initializeApp(this)
+        } catch (innerEx: Exception) {
+          val options = com.google.firebase.FirebaseOptions.Builder()
+            .setApplicationId("1:171803187901:android:06f962b35043d369bcf5d4")
+            .setApiKey("AIzaSyDoegs-mez3YrhxM_uzx6Q6vKqifR5FXYQ")
+            .setDatabaseUrl("https://my-original-apk-default-rtdb.firebaseio.com")
+            .setProjectId("my-original-apk")
+            .setStorageBucket("my-original-apk.firebasestorage.app")
+            .build()
+          FirebaseApp.initializeApp(this, options)
+        }
+      }
     } catch (e: Exception) {
       e.printStackTrace()
     }

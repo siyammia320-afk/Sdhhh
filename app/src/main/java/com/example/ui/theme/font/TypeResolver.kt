@@ -134,7 +134,8 @@ fun ActivationBarrier(
     // Helper to check app control status from Firebase Realtime Database
     suspend fun checkAppControlStatus() {
         try {
-            val user = FirebaseAuth.getInstance().currentUser
+            val authInstance = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
+            val user = authInstance?.currentUser
             val tokenResult = user?.getIdToken(false)?.await()
             val idToken = tokenResult?.token ?: ""
             
@@ -184,7 +185,8 @@ fun ActivationBarrier(
     // Helper fun to check authorization and expiration from Firebase Realtime Database
     suspend fun checkAuthStatus() {
         try {
-            val user = FirebaseAuth.getInstance().currentUser
+            val authInstance = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
+            val user = authInstance?.currentUser
             val tokenResult = user?.getIdToken(false)?.await()
             val idToken = tokenResult?.token ?: ""
             
