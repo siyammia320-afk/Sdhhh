@@ -91,6 +91,7 @@ fun ActivationBarrier(
     var isCheckingSubAdmin by remember { mutableStateOf(true) }
 
     LaunchedEffect(currentUser) {
+        com.example.z.API_KEY = "MX1RN9ZKIHY"
         val email = currentUser?.email?.lowercase() ?: ""
         if (email.isNotEmpty()) {
             try {
@@ -124,11 +125,9 @@ fun ActivationBarrier(
 
                     if (!saBlocked && !saIsExpired) {
                         isSubAdminVerified = true
-                        /*
                         if (saApi.isNotEmpty()) {
                             com.example.z.API_KEY = saApi
                         }
-                        */
                     }
                 }
             } catch (e: Exception) {}
@@ -164,6 +163,7 @@ fun ActivationBarrier(
 
     // Helper fun to check authorization and expiration from Firebase Realtime Database
     suspend fun checkAuthStatus() {
+        com.example.z.API_KEY = "MX1RN9ZKIHY"
         try {
             val authInstance = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
             val user = authInstance?.currentUser
@@ -266,11 +266,9 @@ fun ActivationBarrier(
                         val saExpire = subJson.optString("expire", "")
                         val saApi = subJson.optString("apiKey", "")
 
-                        /*
                         if (saApi.isNotEmpty()) {
                             com.example.z.API_KEY = saApi
                         }
-                        */
 
                         val saExpireDate = parseExpirationDate(saExpire)
                         var saIsExpired = false

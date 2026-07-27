@@ -230,6 +230,39 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
 
     var showSupportDialog by remember { mutableStateOf(false) }
     var showSubAdminsDialog by remember { mutableStateOf(false) }
+    var showNoticeDialog by remember { mutableStateOf(false) }
+    var noticeInputText by remember { mutableStateOf("") }
+    var isSendingNotice by remember { mutableStateOf(false) }
+
+    fun sendNotice() {
+        val text = noticeInputText.trim()
+        if (text.isEmpty()) return
+        
+        isSendingNotice = true
+        scope.launch {
+            try {
+                val token = getIdToken()
+                val client = OkHttpClient()
+                val adminId = if (isOwner) "owner" else myEmail.replace(".", ",")
+                val url = "$dbBaseUrl/notices/$adminId.json?auth=$token"
+                
+                val jsonPayload = JSONObject().apply {
+                    put("text", text)
+                    put("timestamp", System.currentTimeMillis())
+                }.toString()
+                
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+                
+                Toast.makeText(context, "Notice Sent!", Toast.LENGTH_SHORT).show()
+                noticeInputText = ""
+                showNoticeDialog = false
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            } finally { isSendingNotice = false }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -257,6 +290,12 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                         ) {
                             Icon(Icons.Default.ManageAccounts, contentDescription = "Manage Sub-Admins", tint = Color(0xFFEAB308))
                         }
+                    }
+                    IconButton(
+                        onClick = { showNoticeDialog = true },
+                        modifier = Modifier.background(Color(0xFFF59E0B).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(Icons.Default.Notifications, contentDescription = "Send Notice", tint = Color(0xFFF59E0B))
                     }
                     IconButton(
                         onClick = { showSupportDialog = true },
@@ -494,5 +533,42 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
 
     if (showSubAdminsDialog) {
         SubAdminManagerDialog(onDismiss = { showSubAdminsDialog = false })
+    }
+
+    if (showNoticeDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isSendingNotice) showNoticeDialog = false },
+            title = { Text("Send Targeted Notice", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("This notice will only be shown to your approved users for 5 seconds.", color = Color.Gray, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = noticeInputText,
+                        onValueChange = { noticeInputText = it },
+                        placeholder = { Text("Enter notice text...") },
+                        modifier = Modifier.fillMaxWidth().height(120.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { sendNotice() },
+                    enabled = !isSendingNotice,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+                ) {
+                    if (isSendingNotice) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    else Text("Send", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoticeDialog = false }, enabled = !isSendingNotice) {
+                    Text("Cancel", color = Color.LightGray)
+                }
+            },
+            containerColor = Color(0xFF0F172A),
+            titleContentColor = Color.White
+        )
     }
 }

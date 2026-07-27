@@ -3,6 +3,7 @@ package com.example
 import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
 import com.example.ui.theme.font.ActivationBarrier
+import com.example.SupportChatDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.tasks.await
@@ -649,6 +650,86 @@ private class AndroidIdInterface(val isEnabled: () -> Boolean, val context: Cont
     }
 }
 
+@Composable
+fun TargetedNoticeOverlay() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE) }
+    var noticeText by remember { mutableStateOf<String?>(null) }
+    var isVisible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Get the admin email from SharedPreferences (set in TypeResolver)
+    val adminEmail = prefs.getString("my_admin_email", "owner") ?: "owner"
+    val adminId = if (adminEmail == "owner") "owner" else adminEmail.lowercase().replace(".", ",")
+    
+    var lastNoticeTimestamp by remember { mutableStateOf(prefs.getLong("last_notice_ts_$adminId", 0L)) }
+
+    LaunchedEffect(adminId) {
+        while (true) {
+            try {
+                val auth = FirebaseAuth.getInstance()
+                val token = auth.currentUser?.getIdToken(false)?.await()?.token
+                if (token != null) {
+                    val client = OkHttpClient()
+                    val url = "https://my-original-apk-default-rtdb.firebaseio.com/notices/$adminId.json?auth=$token"
+                    val request = Request.Builder().url(url).build()
+                    val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+                    val body = response.body?.string() ?: ""
+                    response.close()
+                    
+                    if (body.isNotEmpty() && body != "null") {
+                        val json = JSONObject(body)
+                        val text = json.optString("text", "")
+                        val ts = json.optLong("timestamp", 0L)
+                        
+                        if (ts > lastNoticeTimestamp && text.isNotEmpty()) {
+                            noticeText = text
+                            isVisible = true
+                            lastNoticeTimestamp = ts
+                            prefs.edit().putLong("last_notice_ts_$adminId", ts).apply()
+                            
+                            // Hide after 5 seconds
+                            kotlinx.coroutines.delay(5000)
+                            isVisible = false
+                        }
+                    }
+                }
+            } catch (e: Exception) { }
+            kotlinx.coroutines.delay(10000) // Check every 10 seconds
+        }
+    }
+
+    AnimatedVisibility(
+        visible = isVisible,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize().padding(16.dp).statusBarsPadding(),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF59E0B)),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(8.dp),
+                modifier = Modifier.fillMaxWidth().clickable { isVisible = false }
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color.Black)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text("Notice from Admin", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(noticeText ?: "", color = Color.Black, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -694,6 +775,7 @@ class MainActivity : ComponentActivity() {
       MyApplicationTheme {
         AuthBarrier {
           ActivationBarrier {
+            TargetedNoticeOverlay()
             MainScreen()
           }
         }
