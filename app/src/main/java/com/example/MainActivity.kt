@@ -44,6 +44,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -831,6 +833,7 @@ fun MainScreen() {
   var showCreatorDialog by remember { mutableStateOf(false) }
   var showHistoryDialog by remember { mutableStateOf(false) }
   var showCookieLoginDialog by remember { mutableStateOf(false) }
+  var showSupportDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
   var isDesktopMode by remember { mutableStateOf(prefs.getBoolean("is_desktop_mode", false)) }
@@ -974,6 +977,9 @@ fun MainScreen() {
           }
         },
         actions = {
+          IconButton(onClick = { showSupportDialog = true }) {
+            Icon(Icons.Default.SupportAgent, contentDescription = "Support SMS", tint = Color(0xFF38BDF8))
+          }
           IconButton(onClick = { showSettingsDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Settings")
           }
@@ -1917,6 +1923,20 @@ fun MainScreen() {
         }
       }
     )
+  }
+
+  if (showSupportDialog) {
+    val uid = FirebaseAuth.getInstance().currentUser?.uid
+    if (uid != null) {
+      SupportChatDialog(
+        userId = uid,
+        onDismiss = { showSupportDialog = false },
+        isAdminMode = false
+      )
+    } else {
+      // User not logged in (fallback)
+      showSupportDialog = false
+    }
   }
 
   // Set Range Dialog

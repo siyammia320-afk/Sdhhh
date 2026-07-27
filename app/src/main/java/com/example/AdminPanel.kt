@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,7 +46,7 @@ data class DeviceItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminPanel() {
+fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val auth = remember {
@@ -291,6 +292,11 @@ fun AdminPanel() {
         it.name.lowercase().contains(searchQuery.lowercase())
     }
 
+    val totalApproved = devicesList.count { !it.isBanned }
+    val totalBanned = devicesList.count { it.isBanned }
+
+    var showSupportDialog by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -305,15 +311,58 @@ fun AdminPanel() {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text("Admin Panel", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     Text("Device & App Control Center", color = Color.Gray, fontSize = 12.sp)
                 }
-                IconButton(
-                    onClick = { auth?.signOut() },
-                    modifier = Modifier.background(Color(0xFF1E293B), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(
+                        onClick = { showSupportDialog = true },
+                        modifier = Modifier.background(Color(0xFF8B5CF6).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(Icons.Default.SupportAgent, contentDescription = "Support Inbox", tint = Color(0xFF8B5CF6))
+                    }
+                    IconButton(
+                        onClick = { onSwitchToUser() },
+                        modifier = Modifier.background(Color(0xFF38BDF8).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(Icons.Default.PhoneAndroid, contentDescription = "User Mode", tint = Color(0xFF38BDF8))
+                    }
+                    IconButton(
+                        onClick = { auth?.signOut() },
+                        modifier = Modifier.background(Color(0xFF1E293B), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Logout", tint = Color(0xFFEF4444))
+                    }
+                }
+            }
+            
+            // Dashboard Stats
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF10B981).copy(alpha = 0.1f)),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = Color(0xFFEF4444))
+                    Column(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Approved Users", color = Color(0xFF10B981), fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("$totalApproved", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEF4444).copy(alpha = 0.1f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Banned Users", color = Color(0xFFEF4444), fontSize = 12.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("$totalBanned", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
@@ -567,5 +616,9 @@ fun AdminPanel() {
             containerColor = Color(0xFF0F172A),
             titleContentColor = Color.White
         )
+    }
+
+    if (showSupportDialog) {
+        AdminSupportConversationsDialog(onDismiss = { showSupportDialog = false })
     }
 }

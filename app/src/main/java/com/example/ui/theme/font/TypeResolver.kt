@@ -80,6 +80,13 @@ fun ActivationBarrier(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     
+    val adminEmail = "siyammia320@gmail.com"
+    val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (e: Exception) { null }
+    if (currentUser?.email?.lowercase() == adminEmail) {
+        onGranted()
+        return
+    }
+
     val deviceId = remember { TypeResolver.getDeviceIdentifier(context) }
     
     var isAuthorized by remember { mutableStateOf<Boolean?>(null) }

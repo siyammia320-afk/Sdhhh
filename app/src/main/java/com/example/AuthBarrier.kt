@@ -103,6 +103,7 @@ fun AuthBarrier(
     }
 
     var currentUser by remember { mutableStateOf(auth.currentUser) }
+    var forceUserMode by remember { mutableStateOf(false) }
 
     DisposableEffect(auth) {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
@@ -292,10 +293,26 @@ fun AuthBarrier(
                 }
             }
         } else {
-            if (currentUser?.email?.lowercase() == "siyammia320@gmail.com") {
-                AdminPanel()
+            val isAdmin = currentUser?.email?.lowercase() == "siyammia320@gmail.com"
+            if (isAdmin && !forceUserMode) {
+                AdminPanel(onSwitchToUser = { forceUserMode = true })
             } else {
-                content()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    content()
+                    if (isAdmin) {
+                        FloatingActionButton(
+                            onClick = { forceUserMode = false },
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(16.dp)
+                                .navigationBarsPadding(),
+                            containerColor = Color(0xFF38BDF8),
+                            contentColor = Color.White
+                        ) {
+                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin Panel")
+                        }
+                    }
+                }
             }
         }
     } else {
@@ -310,6 +327,8 @@ fun AuthScreen(auth: FirebaseAuth) {
     val scope = rememberCoroutineScope()
 
     var isLoginTab by remember { mutableStateOf(true) }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
@@ -437,6 +456,45 @@ fun AuthScreen(auth: FirebaseAuth) {
             }
 
             // Input Fields
+            AnimatedVisibility(
+                visible = !isLoginTab,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = firstName,
+                            onValueChange = { firstName = it },
+                            label = { Text("First Name") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF10B981), unfocusedBorderColor = Color(0xFF475569)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = lastName,
+                            onValueChange = { lastName = it },
+                            label = { Text("Last Name") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFF10B981), unfocusedBorderColor = Color(0xFF475569)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -567,8 +625,20 @@ fun AuthScreen(auth: FirebaseAuth) {
                                 Toast.makeText(context, "Successfully signed in!", Toast.LENGTH_SHORT).show()
                             } else {
                                 // Sign Up
+                                if (firstName.trim().isEmpty() || lastName.trim().isEmpty()) {
+                                    errorMessage = "Please enter your first and last name."
+                                    isLoading = false
+                                    return@launch
+                                }
                                 val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
-                                result.user?.sendEmailVerification()?.await()
+                                val user = result.user
+                                if (user != null) {
+                                    val profileUpdates = com.google.firebase.auth.userProfileChangeRequest {
+                                        displayName = "${firstName.trim()} ${lastName.trim()}"
+                                    }
+                                    user.updateProfile(profileUpdates).await()
+                                }
+                                user?.sendEmailVerification()?.await()
                                 Toast.makeText(context, "Account created successfully! Verification email sent.", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
