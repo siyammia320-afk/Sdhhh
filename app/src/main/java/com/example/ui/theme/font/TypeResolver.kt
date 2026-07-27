@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,48 +89,11 @@ fun ActivationBarrier(
     var currentUserExpire by remember { mutableStateOf("") }
     var isAppDisabled by remember { mutableStateOf(false) }
 
-    // Infinite transitions for glittering ("ঝিকিমিকি") effects
-    val infiniteTransition = rememberInfiniteTransition(label = "cyber_shimmer")
-    
-    val scalePulse by infiniteTransition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scalePulse"
-    )
-
-    val glowFloat by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 3.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowFloat"
-    )
-
-    val shimmerColor by infiniteTransition.animateColor(
-        initialValue = Color(0xFF38BDF8), // Radiant Cyan
-        targetValue = Color(0xFFEC4899), // Vibrant Pink
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmerColor"
-    )
-
-    val shimmerColorAlt by infiniteTransition.animateColor(
-        initialValue = Color(0xFF8B5CF6), // Royal Violet
-        targetValue = Color(0xFF10B981), // Emerald Green
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmerColorAlt"
-    )
+    // Static visual definitions to completely prevent lagging/phone freezing
+    val scalePulse = 1.0f
+    val glowFloat = 1.5f
+    val shimmerColor = Color(0xFF38BDF8) // Elegant Cyan
+    val shimmerColorAlt = Color(0xFF8B5CF6) // Royal Violet
 
     // Helper to check app control status from Firebase Realtime Database
     suspend fun checkAppControlStatus() {
@@ -212,13 +176,14 @@ fun ActivationBarrier(
             
             if (body.isEmpty() || body == "null") {
                 isAuthorized = false
-                errorMessage = "আপনার ডিভাইস আইডিটি এক্টিভেট করা নেই। অনুগ্রহ করে কপি করে অ্যাডমিনের সাথে যোগাযোগ করুন।"
+                errorMessage = "Your device ID is not activated. Please copy your ID and contact the administrator to activate it."
                 return
             }
             
             val cleanDeviceId = deviceId.trim().lowercase()
             var found = false
             var isExpired = false
+            var isBanned = false
             var expDateStr = ""
             var uName = ""
             
@@ -233,6 +198,7 @@ fun ActivationBarrier(
                         if (valueObj is org.json.JSONObject) {
                             expDateStr = valueObj.optString("expire", "").trim()
                             uName = valueObj.optString("name", "").trim()
+                            isBanned = valueObj.optBoolean("banned", false)
                         } else {
                             expDateStr = valueObj?.toString()?.trim() ?: ""
                         }
@@ -245,7 +211,7 @@ fun ActivationBarrier(
                     currentUserExpire = expDateStr
                 }
                 
-                if (found && expDateStr.isNotEmpty()) {
+                if (found && expDateStr.isNotEmpty() && !isBanned) {
                     val expireDate = parseExpirationDate(expDateStr)
                     if (expireDate != null) {
                         val cal = java.util.Calendar.getInstance()
@@ -268,11 +234,15 @@ fun ActivationBarrier(
             
             if (!found) {
                 isAuthorized = false
-                errorMessage = "আপনার ডিভাইস আইডিটি এক্টিভেট করা নেই। অনুগ্রহ করে কপি করে অ্যাডমিনের সাথে যোগাযোগ করুন।"
+                errorMessage = "Your device ID is not activated. Please copy your ID and contact the administrator to activate it."
+            } else if (isBanned) {
+                isAuthorized = false
+                val namePart = if (uName.isNotEmpty()) "User: $uName\n" else ""
+                errorMessage = "${namePart}Your device has been banned by the administrator."
             } else if (isExpired) {
                 isAuthorized = false
-                val namePart = if (uName.isNotEmpty()) "ব্যবহারকারী: $uName\n" else ""
-                errorMessage = "${namePart}আপনার ডিভাইসের মেয়াদ শেষ হয়ে গেছে! অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।\n(মেয়াদ উত্তীর্ণ: $expDateStr)"
+                val namePart = if (uName.isNotEmpty()) "User: $uName\n" else ""
+                errorMessage = "${namePart}Your device has expired! Please contact the administrator to renew it.\n(Expired: $expDateStr)"
             } else {
                 isAuthorized = true
                 errorMessage = null
@@ -280,7 +250,7 @@ fun ActivationBarrier(
         } catch (e: Exception) {
             if (isAuthorized == null) {
                 isAuthorized = false
-                errorMessage = "সার্ভারের সাথে যোগাযোগ করা যাচ্ছে না। ইন্টারনেট কানেকশন চেক করুন।"
+                errorMessage = "Cannot connect to the server. Please check your internet connection."
             }
         }
     }
@@ -338,7 +308,7 @@ fun ActivationBarrier(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 Text(
-                    text = "অ্যাপটি সাময়িকভাবে বন্ধ আছে",
+                    text = "Application is Temporarily Disabled",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
@@ -348,7 +318,7 @@ fun ActivationBarrier(
                 Spacer(modifier = Modifier.height(10.dp))
                 
                 Text(
-                    text = "অ্যাডমিন সাময়িকভাবে অ্যাপের কার্যক্রম বন্ধ করে রেখেছেন। অনুগ্রহ করে পরে আবার চেষ্টা করুন অথবা অ্যাডমিনের সাথে যোগাযোগ করুন।",
+                    text = "The administrator has temporarily disabled the application. Please try again later or contact support.",
                     color = Color.LightGray,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -365,7 +335,7 @@ fun ActivationBarrier(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    Text("লগআউট করুন", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("Log Out", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -423,7 +393,7 @@ fun ActivationBarrier(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "ডিভাইস ভেরিফিকেশন প্রয়োজন",
+                    text = "Device Verification Required",
                     color = Color.White,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -474,7 +444,7 @@ fun ActivationBarrier(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "আপনার ডিভাইস আইডি (Device ID):",
+                            text = "Your Device ID:",
                             color = Color.White,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -518,7 +488,7 @@ fun ActivationBarrier(
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val clip = ClipData.newPlainText("Device ID", deviceId)
                                 clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Device ID copied!", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
                             shape = RoundedCornerShape(6.dp),
@@ -540,7 +510,7 @@ fun ActivationBarrier(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "ডিভাইস আইডি কপি করুন",
+                                    text = "Copy Device ID",
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -564,7 +534,7 @@ fun ActivationBarrier(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/8801300349649?text=$encodedMsg"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "WhatsApp ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Cannot open WhatsApp", Toast.LENGTH_SHORT).show()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)), // Deep WhatsApp Green
@@ -588,7 +558,7 @@ fun ActivationBarrier(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/Ornob81"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "Telegram ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)), // Telegram Royal Blue
@@ -621,7 +591,7 @@ fun ActivationBarrier(
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/+_8I891IgPUYzNDll"))
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "Telegram ওপেন করা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Cannot open Telegram", Toast.LENGTH_SHORT).show()
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)), // Darker Rose/Red
@@ -657,7 +627,7 @@ fun ActivationBarrier(
                                         isLoading = true
                                         checkAuthStatus()
                                         if (isAuthorized == true) {
-                                            Toast.makeText(context, "ডিভাইস ভেরিফিকেশন সফল হয়েছে!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Device verification successful!", Toast.LENGTH_SHORT).show()
                                         }
                                         isLoading = false
                                     }
@@ -679,13 +649,46 @@ fun ActivationBarrier(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "ভেরিফাই করুন",
+                                        text = "Verify Status",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
                         }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        FirebaseAuth.getInstance().signOut()
+                        Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Log Out",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Log Out",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

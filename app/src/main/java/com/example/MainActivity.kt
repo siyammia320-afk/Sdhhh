@@ -5,6 +5,7 @@ import com.example.ui.theme.font.MenuDialog
 import com.example.ui.theme.font.ActivationBarrier
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.FirebaseApp
+import kotlinx.coroutines.tasks.await
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
@@ -42,6 +43,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -693,6 +695,7 @@ class MainActivity : ComponentActivity() {
             MainScreen()
           }
         }
+        GlobalNoticeOverlay()
       }
     }
   }
@@ -710,6 +713,101 @@ private fun getCookieValue(cookieString: String?, key: String): String? {
   return null
 }
 
+@Composable
+fun GlobalNoticeOverlay() {
+    var noticeText by remember { mutableStateOf("") }
+    var noticeTimestamp by remember { mutableStateOf(0L) }
+    var showNotice by remember { mutableStateOf(false) }
+    var timeLeft by remember { mutableIntStateOf(5) }
+    
+    val prefs = LocalContext.current.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+    var lastShownTimestamp by remember { mutableStateOf(prefs.getLong("last_notice_ts", 0L)) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            try {
+                val authInstance = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
+                val token = authInstance?.currentUser?.getIdToken(false)?.await()?.token ?: ""
+                val client = OkHttpClient()
+                val url = "https://my-original-apk-default-rtdb.firebaseio.com/notice.json?auth=$token"
+                val request = Request.Builder().url(url).build()
+                
+                val response = kotlinx.coroutines.withContext(Dispatchers.IO) { client.newCall(request).execute() }
+                val body = response.body?.string()?.trim() ?: ""
+                response.close()
+                
+                if (body.isNotEmpty() && body != "null") {
+                    val json = org.json.JSONObject(body)
+                    val text = json.optString("text", "")
+                    val timestamp = json.optLong("timestamp", 0L)
+                    
+                    if (text.isNotEmpty() && timestamp > lastShownTimestamp && !showNotice) {
+                        noticeText = text
+                        noticeTimestamp = timestamp
+                        showNotice = true
+                        timeLeft = 5
+                    }
+                }
+            } catch (e: Exception) { }
+            
+            kotlinx.coroutines.delay(5000)
+        }
+    }
+    
+    LaunchedEffect(showNotice) {
+        if (showNotice) {
+            while (timeLeft > 0) {
+                kotlinx.coroutines.delay(1000)
+                timeLeft--
+            }
+            showNotice = false
+            lastShownTimestamp = noticeTimestamp
+            prefs.edit().putLong("last_notice_ts", noticeTimestamp).apply()
+        }
+    }
+
+    if (showNotice) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { /* Cannot dismiss manually */ },
+            properties = androidx.compose.ui.window.DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false,
+                usePlatformDefaultWidth = false
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.NotificationsActive,
+                        contentDescription = "Notice",
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(72.dp)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = noticeText,
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        text = "Closing in $timeLeft seconds...",
+                        color = Color.Gray,
+                        fontSize = 16.sp
+                    )
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")

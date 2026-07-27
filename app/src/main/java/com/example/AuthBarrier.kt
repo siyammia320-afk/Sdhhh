@@ -160,7 +160,7 @@ fun AuthBarrier(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "ইমেইল ভেরিফিকেশন প্রয়োজন",
+                        text = "Email Verification Required",
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
@@ -170,7 +170,7 @@ fun AuthBarrier(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "একটি ভেরিফিকেশন লিঙ্ক আপনার নিম্নোক্ত ইমেইলে পাঠানো হয়েছে। দয়া করে আপনার ইনবক্স অথবা স্প্যাম ফোল্ডার চেক করুন।",
+                        text = "A verification link has been sent to your email address below. Please check your inbox or spam folder.",
                         color = Color.LightGray,
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center,
@@ -208,12 +208,12 @@ fun AuthBarrier(
                                     auth.currentUser?.reload()?.await()
                                     currentUser = auth.currentUser
                                     if (currentUser?.isEmailVerified == true) {
-                                        Toast.makeText(context, "সফলভাবে ইমেইল ভেরিফাই করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Email successfully verified!", Toast.LENGTH_SHORT).show()
                                     } else {
-                                        Toast.makeText(context, "আপনার ইমেইল এখনও ভেরিফাই করা হয়নি। দয়া করে ইনবক্স চেক করে লিঙ্কটিতে ক্লিক করুন।", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "Your email has not been verified yet. Please check your inbox and click the link.", Toast.LENGTH_LONG).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                 } finally {
                                     isReloading = false
                                 }
@@ -235,7 +235,7 @@ fun AuthBarrier(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Refresh, contentDescription = "Check", modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("আমি ভেরিফাই করেছি", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("I Have Verified", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -248,9 +248,9 @@ fun AuthBarrier(
                             scope.launch {
                                 try {
                                     auth.currentUser?.sendEmailVerification()?.await()
-                                    Toast.makeText(context, "ভেরিফিকেশন ইমেইল পুনরায় পাঠানো হয়েছে!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Verification email resent successfully!", Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                 } finally {
                                     isResending = false
                                 }
@@ -272,7 +272,7 @@ fun AuthBarrier(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Email, contentDescription = "Resend", modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("আবার লিঙ্ক পাঠান (Resend)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Resend Verification Link", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -282,12 +282,12 @@ fun AuthBarrier(
                     TextButton(
                         onClick = {
                             auth.signOut()
-                            Toast.makeText(context, "লগআউট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
                         }
                     ) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(16.dp), tint = Color.Gray)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("লগইন পেজে ফিরে যান (Log Out)", color = Color.Gray, fontSize = 14.sp)
+                        Text("Back to Sign In (Log Out)", color = Color.Gray, fontSize = 14.sp)
                     }
                 }
             }
@@ -363,7 +363,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "নিরাপদ সাইন আপ ও লগইন",
+                text = "Secure Sign In & Sign Up",
                 color = Color.White,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
@@ -371,7 +371,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             )
 
             Text(
-                text = "অ্যাপটি ব্যবহার করতে প্রথমে অ্যাকাউন্ট তৈরি অথবা লগইন করুন",
+                text = "Please create an account or sign in to use the app",
                 color = Color.Gray,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
@@ -396,7 +396,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
-                    Text(text = "লগইন (Sign In)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Sign In", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Button(
@@ -409,7 +409,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
-                    Text(text = "রেজিস্ট্রেশন (Sign Up)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "Sign Up", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -440,7 +440,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("ইমেইল অ্যাড্রেস (Email)") },
+                label = { Text("Email Address") },
                 placeholder = { Text("example@gmail.com") },
                 leadingIcon = { Icon(Icons.Default.Email, contentDescription = "Email", tint = Color.LightGray) },
                 singleLine = true,
@@ -462,7 +462,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("পাসওয়ার্ড (Password)") },
+                label = { Text("Password") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Password", tint = Color.LightGray) },
                 trailingIcon = {
                     val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
@@ -496,7 +496,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                     OutlinedTextField(
                         value = confirmPassword,
                         onValueChange = { confirmPassword = it },
-                        label = { Text("পাসওয়ার্ড নিশ্চিত করুন (Confirm Password)") },
+                        label = { Text("Confirm Password") },
                         leadingIcon = { Icon(Icons.Default.Lock, contentDescription = "Confirm Password", tint = Color.LightGray) },
                         trailingIcon = {
                             val icon = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
@@ -529,7 +529,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                 ) {
                     TextButton(onClick = { showForgotPasswordDialog = true }) {
                         Text(
-                            text = "পাসওয়ার্ড ভুলে গেছেন? (Forgot Password)",
+                            text = "Forgot Password?",
                             color = Color(0xFF10B981),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -544,15 +544,15 @@ fun AuthScreen(auth: FirebaseAuth) {
             Button(
                 onClick = {
                     if (email.trim().isEmpty() || password.trim().isEmpty()) {
-                        errorMessage = "দয়া করে ইমেইল এবং পাসওয়ার্ড দুটিই পূরণ করুন।"
+                        errorMessage = "Please fill in both email and password fields."
                         return@Button
                     }
                     if (password.length < 6) {
-                        errorMessage = "পাসওয়ার্ড অবশ্যই কমপক্ষে ৬ অক্ষরের হতে হবে।"
+                        errorMessage = "Password must be at least 6 characters long."
                         return@Button
                     }
                     if (!isLoginTab && password != confirmPassword) {
-                        errorMessage = "পাসওয়ার্ড দুটি মেলেনি।"
+                        errorMessage = "Passwords do not match."
                         return@Button
                     }
 
@@ -564,20 +564,20 @@ fun AuthScreen(auth: FirebaseAuth) {
                             if (isLoginTab) {
                                 // Sign In
                                 auth.signInWithEmailAndPassword(email.trim(), password).await()
-                                Toast.makeText(context, "সফলভাবে লগইন করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Successfully signed in!", Toast.LENGTH_SHORT).show()
                             } else {
                                 // Sign Up
                                 val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
                                 result.user?.sendEmailVerification()?.await()
-                                Toast.makeText(context, "অ্যাকাউন্ট তৈরি সম্পূর্ণ হয়েছে! ভেরিফিকেশন ইমেইল পাঠানো হয়েছে।", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Account created successfully! Verification email sent.", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             errorMessage = when {
-                                e.localizedMessage?.contains("ALREADY_IN_USE") == true -> "এই ইমেইলটি ইতিমধ্যেই নিবন্ধিত রয়েছে।"
-                                e.localizedMessage?.contains("INVALID_EMAIL") == true -> "দয়া করে একটি সঠিক ইমেইল ঠিকানা প্রদান করুন।"
-                                e.localizedMessage?.contains("WRONG_PASSWORD") == true -> "ভুল পাসওয়ার্ড। আবার চেষ্টা করুন।"
-                                e.localizedMessage?.contains("USER_NOT_FOUND") == true -> "এই ইমেইলের কোনো অ্যাকাউন্ট পাওয়া যায়নি।"
-                                else -> e.localizedMessage ?: "অনাকাঙ্ক্ষিত ত্রুটি ঘটেছে। পুনরায় চেষ্টা করুন।"
+                                e.localizedMessage?.contains("ALREADY_IN_USE") == true -> "This email is already registered."
+                                e.localizedMessage?.contains("INVALID_EMAIL") == true -> "Please enter a valid email address."
+                                e.localizedMessage?.contains("WRONG_PASSWORD") == true -> "Incorrect password. Please try again."
+                                e.localizedMessage?.contains("USER_NOT_FOUND") == true -> "No account found with this email."
+                                else -> e.localizedMessage ?: "An error occurred. Please try again."
                             }
                         } finally {
                             isLoading = false
@@ -602,107 +602,13 @@ fun AuthScreen(auth: FirebaseAuth) {
                     )
                 } else {
                     Text(
-                        text = if (isLoginTab) "লগইন করুন" else "রেজিস্ট্রেশন করুন",
+                        text = if (isLoginTab) "Sign In" else "Sign Up",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HorizontalDivider(
-                    modifier = Modifier.weight(1.0f),
-                    color = Color.Gray.copy(alpha = 0.3f)
-                )
-                Text(
-                    text = "অথবা",
-                    color = Color.Gray,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                HorizontalDivider(
-                    modifier = Modifier.weight(1.0f),
-                    color = Color.Gray.copy(alpha = 0.3f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Google Sign-In Button
-            var isGoogleLoading by remember { mutableStateOf(false) }
-
-            Button(
-                onClick = {
-                    isGoogleLoading = true
-                    errorMessage = null
-                    val credentialManager = CredentialManager.create(context)
-                    val googleIdOption = GetGoogleIdOption.Builder()
-                        .setFilterByAuthorizedAccounts(false)
-                        .setServerClientId("171803187901-jac8d7m1bv2er6n1lruvnrfuijaohurg.apps.googleusercontent.com")
-                        .setAutoSelectEnabled(true)
-                        .build()
-
-                    val request = GetCredentialRequest.Builder()
-                        .addCredentialOption(googleIdOption)
-                        .build()
-
-                    scope.launch {
-                        try {
-                            val result = credentialManager.getCredential(context, request)
-                            val credential = result.credential
-                            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                            val idToken = googleIdTokenCredential.idToken
-                            val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
-                            auth.signInWithCredential(firebaseCredential).await()
-                            Toast.makeText(context, "গুগল দিয়ে সফলভাবে লগইন করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            errorMessage = "গুগল সাইন-ইন ব্যর্থ হয়েছে: ${e.localizedMessage ?: e.toString()}"
-                        } finally {
-                            isGoogleLoading = false
-                        }
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.White,
-                    contentColor = Color.Black
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = !isGoogleLoading && !isLoading
-            ) {
-                if (isGoogleLoading) {
-                    CircularProgressIndicator(
-                        color = Color.Black,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "G  ",
-                            color = Color(0xFFEA4335),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            text = "গুগল দিয়ে লগইন করুন (Google)",
-                            color = Color.Black,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
         }
     }
 
@@ -712,7 +618,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             onDismissRequest = { showForgotPasswordDialog = false },
             title = {
                 Text(
-                    text = "পাসওয়ার্ড রিসেট করুন",
+                    text = "Reset Password",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = Color.White
@@ -721,7 +627,7 @@ fun AuthScreen(auth: FirebaseAuth) {
             text = {
                 Column {
                     Text(
-                        text = "আপনার একাউন্টের ইমেইল ঠিকানাটি নিচে প্রবেশ করুন। আমরা আপনাকে পাসওয়ার্ড পরিবর্তন করার একটি লিঙ্ক পাঠাবো।",
+                        text = "Enter your email address below. We will send you a password reset link.",
                         color = Color.LightGray,
                         fontSize = 13.sp,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -729,7 +635,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                     OutlinedTextField(
                         value = forgotPasswordEmail,
                         onValueChange = { forgotPasswordEmail = it },
-                        label = { Text("ইমেইল অ্যাড্রেস") },
+                        label = { Text("Email Address") },
                         placeholder = { Text("example@gmail.com") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -747,17 +653,17 @@ fun AuthScreen(auth: FirebaseAuth) {
                 Button(
                     onClick = {
                         if (forgotPasswordEmail.trim().isEmpty()) {
-                            Toast.makeText(context, "দয়া করে ইমেইল লিখুন", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Please enter your email address", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         isSendingResetEmail = true
                         scope.launch {
                             try {
                                 auth.sendPasswordResetEmail(forgotPasswordEmail.trim()).await()
-                                Toast.makeText(context, "রিসেট ইমেইল পাঠানো হয়েছে! দয়া করে ইনবক্স চেক করুন।", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Password reset email sent! Please check your inbox.", Toast.LENGTH_LONG).show()
                                 showForgotPasswordDialog = false
                             } catch (e: Exception) {
-                                Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                             } finally {
                                 isSendingResetEmail = false
                             }
@@ -769,7 +675,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                     if (isSendingResetEmail) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     } else {
-                        Text("রিসেট লিঙ্ক পাঠান")
+                        Text("Send Reset Link")
                     }
                 }
             },
@@ -777,7 +683,7 @@ fun AuthScreen(auth: FirebaseAuth) {
                 TextButton(
                     onClick = { showForgotPasswordDialog = false }
                 ) {
-                    Text("বন্ধ করুন", color = Color.LightGray)
+                    Text("Cancel", color = Color.LightGray)
                 }
             },
             containerColor = Color(0xFF0F172A),

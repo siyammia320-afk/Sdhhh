@@ -32,11 +32,15 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 data class DeviceItem(
     val id: String,
     val name: String,
-    val expire: String
+    val expire: String,
+    val isBanned: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,38 +49,37 @@ fun AdminPanel() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val auth = remember {
-        try {
-            FirebaseAuth.getInstance()
-        } catch (e: Exception) {
-            null
-        }
+        try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
     }
     
     var appStatus by remember { mutableStateOf("ON") }
     var devicesList by remember { mutableStateOf<List<DeviceItem>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     
-    // Add Device Form States
     var inputName by remember { mutableStateOf("") }
     var inputDeviceId by remember { mutableStateOf("") }
-    var inputExpire by remember { mutableStateOf("31:12:2026") }
+    var inputDays by remember { mutableFloatStateOf(30f) }
     
+    var noticeText by remember { mutableStateOf("") }
+    var isSendingNotice by remember { mutableStateOf(false) }
+
     var isLoadingStatus by remember { mutableStateOf(false) }
     var isLoadingDevices by remember { mutableStateOf(false) }
     var isSavingDevice by remember { mutableStateOf(false) }
 
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editDeviceItem by remember { mutableStateOf<DeviceItem?>(null) }
+    var editInputName by remember { mutableStateOf("") }
+    var editInputDays by remember { mutableFloatStateOf(30f) }
+
     val dbBaseUrl = "https://my-original-apk-default-rtdb.firebaseio.com"
 
-    // Helper to get ID Token
     suspend fun getIdToken(): String {
         return try {
             auth?.currentUser?.getIdToken(false)?.await()?.token ?: ""
-        } catch (e: Exception) {
-            ""
-        }
+        } catch (e: Exception) { "" }
     }
 
-    // Load App Status
     fun loadAppStatus() {
         isLoadingStatus = true
         scope.launch {
@@ -86,9 +89,7 @@ fun AdminPanel() {
                 val url = "$dbBaseUrl/status.json?auth=$token"
                 val request = Request.Builder().url(url).build()
                 
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
-                }
+                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
                 val body = response.body?.string()?.trim() ?: ""
                 response.close()
                 
@@ -102,15 +103,10 @@ fun AdminPanel() {
                 } else {
                     appStatus = "ON"
                 }
-            } catch (e: Exception) {
-                // Ignore or log
-            } finally {
-                isLoadingStatus = false
-            }
+            } catch (e: Exception) { } finally { isLoadingStatus = false }
         }
     }
 
-    // Update App Status
     fun updateAppStatus(newStatus: String) {
         isLoadingStatus = true
         scope.launch {
@@ -119,29 +115,48 @@ fun AdminPanel() {
                 val client = OkHttpClient()
                 val url = "$dbBaseUrl/status.json?auth=$token"
                 
-                val jsonPayload = JSONObject().apply {
-                    put("status", newStatus)
-                }.toString()
-                
+                val jsonPayload = JSONObject().apply { put("status", newStatus) }.toString()
                 val mediaType = "application/json; charset=utf-8".toMediaType()
-                val requestBody = jsonPayload.toRequestBody(mediaType)
-                val request = Request.Builder().url(url).put(requestBody).build()
+                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
                 
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
-                }
-                response.close()
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
                 appStatus = newStatus
-                Toast.makeText(context, "অ্যাপ স্ট্যাটাস $newStatus করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "App Status changed to $newStatus!", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            } finally {
-                isLoadingStatus = false
-            }
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            } finally { isLoadingStatus = false }
         }
     }
 
-    // Load Devices List
+    fun sendNotice() {
+        if (noticeText.trim().isEmpty()) {
+            Toast.makeText(context, "Enter a notice", Toast.LENGTH_SHORT).show()
+            return
+        }
+        isSendingNotice = true
+        scope.launch {
+            try {
+                val token = getIdToken()
+                val client = OkHttpClient()
+                val url = "$dbBaseUrl/notice.json?auth=$token"
+                
+                val jsonPayload = JSONObject().apply { 
+                    put("text", noticeText.trim())
+                    put("timestamp", System.currentTimeMillis())
+                }.toString()
+                
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
+                
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+                Toast.makeText(context, "Notice Sent!", Toast.LENGTH_SHORT).show()
+                noticeText = ""
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            } finally { isSendingNotice = false }
+        }
+    }
+
     fun loadDevices() {
         isLoadingDevices = true
         scope.launch {
@@ -151,9 +166,7 @@ fun AdminPanel() {
                 val url = "$dbBaseUrl/devices.json?auth=$token"
                 val request = Request.Builder().url(url).build()
                 
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
-                }
+                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
                 val body = response.body?.string()?.trim() ?: ""
                 response.close()
                 
@@ -166,69 +179,68 @@ fun AdminPanel() {
                         val valueObj = json.opt(key)
                         var dName = ""
                         var dExpire = ""
+                        var dBanned = false
                         if (valueObj is JSONObject) {
                             dName = valueObj.optString("name", "")
                             dExpire = valueObj.optString("expire", "")
+                            dBanned = valueObj.optBoolean("banned", false)
                         } else {
                             dExpire = valueObj?.toString() ?: ""
                         }
-                        newList.add(DeviceItem(id = key, name = dName, expire = dExpire))
+                        newList.add(DeviceItem(id = key, name = dName, expire = dExpire, isBanned = dBanned))
                     }
                 }
                 devicesList = newList.sortedBy { it.name.lowercase() }
-            } catch (e: Exception) {
-                // Ignore or show
-            } finally {
-                isLoadingDevices = false
-            }
+            } catch (e: Exception) { } finally { isLoadingDevices = false }
         }
     }
 
-    // Add or Update Device
-    fun saveDevice() {
-        val devId = inputDeviceId.trim()
-        val name = inputName.trim()
-        val expire = inputExpire.trim()
-        
-        if (devId.isEmpty() || name.isEmpty() || expire.isEmpty()) {
-            Toast.makeText(context, "সবগুলো ইনপুট ফিল্ড পূরণ করুন", Toast.LENGTH_SHORT).show()
+    fun saveDevice(devId: String, name: String, days: Int, isBanned: Boolean = false, isEdit: Boolean = false) {
+        val finalId = devId.trim()
+        val finalName = name.trim()
+        if (finalId.isEmpty() || finalName.isEmpty()) {
+            Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
             return
         }
         
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.DAY_OF_YEAR, days)
+        val sdf = SimpleDateFormat("dd:MM:yyyy", Locale.US)
+        val expireDate = sdf.format(calendar.time)
+
         isSavingDevice = true
         scope.launch {
             try {
                 val token = getIdToken()
                 val client = OkHttpClient()
-                val url = "$dbBaseUrl/devices/$devId.json?auth=$token"
+                val url = "$dbBaseUrl/devices/$finalId.json?auth=$token"
                 
                 val jsonPayload = JSONObject().apply {
-                    put("name", name)
-                    put("expire", expire)
+                    put("name", finalName)
+                    put("expire", expireDate)
+                    put("banned", isBanned)
                 }.toString()
                 
                 val mediaType = "application/json; charset=utf-8".toMediaType()
-                val requestBody = jsonPayload.toRequestBody(mediaType)
-                val request = Request.Builder().url(url).put(requestBody).build()
+                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
                 
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+                
+                Toast.makeText(context, if(isEdit) "Device Updated!" else "Device Activated!", Toast.LENGTH_SHORT).show()
+                if (!isEdit) {
+                    inputDeviceId = ""
+                    inputName = ""
+                    inputDays = 30f
+                } else {
+                    showEditDialog = false
                 }
-                response.close()
-                
-                Toast.makeText(context, "ডিভাইস সফলভাবে অ্যাক্টিভেট করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                inputDeviceId = ""
-                inputName = ""
                 loadDevices()
             } catch (e: Exception) {
-                Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            } finally {
-                isSavingDevice = false
-            }
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            } finally { isSavingDevice = false }
         }
     }
 
-    // Delete Device
     fun deleteDevice(deviceIdToDelete: String) {
         scope.launch {
             try {
@@ -236,21 +248,39 @@ fun AdminPanel() {
                 val client = OkHttpClient()
                 val url = "$dbBaseUrl/devices/$deviceIdToDelete.json?auth=$token"
                 val request = Request.Builder().url(url).delete().build()
-                
-                val response = withContext(Dispatchers.IO) {
-                    client.newCall(request).execute()
-                }
-                response.close()
-                
-                Toast.makeText(context, "ডিভাইস রিমুভ করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+                Toast.makeText(context, "Device Removed!", Toast.LENGTH_SHORT).show()
                 loadDevices()
             } catch (e: Exception) {
-                Toast.makeText(context, "ত্রুটি: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Initial Load
+    fun toggleBanDevice(device: DeviceItem) {
+        scope.launch {
+            try {
+                val token = getIdToken()
+                val client = OkHttpClient()
+                val url = "$dbBaseUrl/devices/${device.id}.json?auth=$token"
+                
+                val jsonPayload = JSONObject().apply {
+                    put("name", device.name)
+                    put("expire", device.expire)
+                    put("banned", !device.isBanned)
+                }.toString()
+                
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = Request.Builder().url(url).put(jsonPayload.toRequestBody(mediaType)).build()
+                withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
+                Toast.makeText(context, if(!device.isBanned) "Device Banned!" else "Device Unbanned!", Toast.LENGTH_SHORT).show()
+                loadDevices()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         loadAppStatus()
         loadDevices()
@@ -264,386 +294,238 @@ fun AdminPanel() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF090D1A), // Dark slate blue
-                        Color(0xFF020617)  // Deep rich black
-                    )
-                )
-            )
+            .background(Brush.verticalGradient(listOf(Color(0xFF090D1A), Color(0xFF020617))))
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(
-                        text = "অ্যাডমিন প্যানেল",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "ডিভাইস ও অ্যাপ কন্ট্রোল সেন্টার",
-                        color = Color.Gray,
-                        fontSize = 12.sp
-                    )
+                    Text("Admin Panel", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Device & App Control Center", color = Color.Gray, fontSize = 12.sp)
                 }
-                
                 IconButton(
-                    onClick = {
-                        auth?.signOut()
-                    },
-                    modifier = Modifier
-                        .background(Color(0xFF1E293B), RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
+                    onClick = { auth?.signOut() },
+                    modifier = Modifier.background(Color(0xFF1E293B), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFF334155), RoundedCornerShape(10.dp))
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = Color(0xFFEF4444)
-                    )
+                    Icon(Icons.Default.ExitToApp, contentDescription = "Logout", tint = Color(0xFFEF4444))
                 }
             }
 
-            // Scrollable Layout
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // 1. App Power Status Card
+                // 1. Notice System
                 item {
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.PowerSettingsNew,
-                                        contentDescription = "Power",
-                                        tint = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFFEF4444),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "APK অন/অফ কন্ট্রোল",
-                                        color = Color.White,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                
-                                if (isLoadingStatus) {
-                                    CircularProgressIndicator(
-                                        color = Color(0xFF10B981),
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(14.dp))
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                Button(
-                                    onClick = { updateAppStatus("ON") },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFF1E293B),
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp),
-                                    border = if (appStatus == "ON") null else BorderStroke(1.dp, Color(0xFF334155))
-                                ) {
-                                    Text(
-                                        text = "চালু (ON)",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                
-                                Button(
-                                    onClick = { updateAppStatus("OFF") },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (appStatus == "OFF") Color(0xFFEF4444) else Color(0xFF1E293B),
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(48.dp),
-                                    border = if (appStatus == "OFF") null else BorderStroke(1.dp, Color(0xFF334155))
-                                ) {
-                                    Text(
-                                        text = "বন্ধ (OFF)",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 2. Add New Device Card
-                item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add",
-                                    tint = Color(0xFF38BDF8),
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                Icon(Icons.Default.NotificationsActive, contentDescription = "Notice", tint = Color(0xFFF59E0B), modifier = Modifier.size(24.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "নতুন ডিভাইস অ্যাক্টিভেট করুন",
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Text("Global Notice System", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
-                            
                             Spacer(modifier = Modifier.height(14.dp))
-                            
                             OutlinedTextField(
-                                value = inputName,
-                                onValueChange = { inputName = it },
-                                label = { Text("ব্যবহারকারীর নাম (User Name)") },
-                                placeholder = { Text("যেমন: Rahat Ahmed") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                                value = noticeText,
+                                onValueChange = { noticeText = it },
+                                placeholder = { Text("Write a notice to show to all users...") },
+                                modifier = Modifier.fillMaxWidth().height(100.dp),
+                                maxLines = 4,
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF38BDF8),
-                                    unfocusedBorderColor = Color(0xFF334155)
+                                    focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                                    focusedBorderColor = Color(0xFFF59E0B), unfocusedBorderColor = Color(0xFF334155)
                                 )
                             )
-                            
                             Spacer(modifier = Modifier.height(10.dp))
-                            
-                            OutlinedTextField(
-                                value = inputDeviceId,
-                                onValueChange = { inputDeviceId = it },
-                                label = { Text("ডিভাইস আইডি (Device ID)") },
-                                placeholder = { Text("যেমন: device_id_1") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF38BDF8),
-                                    unfocusedBorderColor = Color(0xFF334155)
-                                )
-                            )
-                            
-                            Spacer(modifier = Modifier.height(10.dp))
-                            
-                            OutlinedTextField(
-                                value = inputExpire,
-                                onValueChange = { inputExpire = it },
-                                label = { Text("মেয়াদ শেষ হওয়ার তারিখ") },
-                                placeholder = { Text("যেমন: 31:12:2026") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color(0xFF38BDF8),
-                                    unfocusedBorderColor = Color(0xFF334155)
-                                )
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
                             Button(
-                                onClick = { saveDevice() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                                onClick = { sendNotice() },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
                                 shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                enabled = !isSavingDevice
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                enabled = !isSendingNotice
                             ) {
-                                if (isSavingDevice) {
-                                    CircularProgressIndicator(
-                                        color = Color.White,
-                                        modifier = Modifier.size(20.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                } else {
-                                    Text(
-                                        text = "ডিভাইস অ্যাক্টিভেট করুন",
-                                        color = Color.Black,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                if (isSendingNotice) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Text("Send Notice", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
 
-                // 3. Search & List Section
+                // 2. Add Device
                 item {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "অ্যাক্টিভেটেড ডিভাইস তালিকা (${devicesList.size})",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.AddModerator, contentDescription = "Add", tint = Color(0xFF38BDF8), modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Approve / Add Device", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            OutlinedTextField(
+                                value = inputName, onValueChange = { inputName = it },
+                                label = { Text("User Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Color(0xFF38BDF8), unfocusedBorderColor = Color(0xFF334155))
                             )
-                            
-                            IconButton(onClick = { loadDevices() }) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Refresh Devices",
-                                    tint = Color.Gray
-                                )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = inputDeviceId, onValueChange = { inputDeviceId = it },
+                                label = { Text("Device ID") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Color(0xFF38BDF8), unfocusedBorderColor = Color(0xFF334155))
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Activation Duration: ${inputDays.toInt()} Days", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Slider(
+                                value = inputDays,
+                                onValueChange = { inputDays = it },
+                                valueRange = 1f..365f,
+                                steps = 364,
+                                colors = SliderDefaults.colors(thumbColor = Color(0xFF38BDF8), activeTrackColor = Color(0xFF38BDF8))
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { saveDevice(inputDeviceId, inputName, inputDays.toInt(), false, false) },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF38BDF8)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                enabled = !isSavingDevice
+                            ) {
+                                if (isSavingDevice) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                else Text("Activate Device", color = Color.Black, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
-                        
+                    }
+                }
+                
+                // 3. App Power Status
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.PowerSettingsNew, contentDescription = "Power", tint = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFFEF4444), modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("APK Power Control", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                }
+                                if (isLoadingStatus) CircularProgressIndicator(color = Color(0xFF10B981), modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(
+                                    onClick = { updateAppStatus("ON") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (appStatus == "ON") Color(0xFF10B981) else Color(0xFF1E293B), contentColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f).height(48.dp),
+                                    border = if (appStatus == "ON") null else BorderStroke(1.dp, Color(0xFF334155))
+                                ) { Text("ON", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                                Button(
+                                    onClick = { updateAppStatus("OFF") },
+                                    colors = ButtonDefaults.buttonColors(containerColor = if (appStatus == "OFF") Color(0xFFEF4444) else Color(0xFF1E293B), contentColor = Color.White),
+                                    shape = RoundedCornerShape(12.dp), modifier = Modifier.weight(1f).height(48.dp),
+                                    border = if (appStatus == "OFF") null else BorderStroke(1.dp, Color(0xFF334155))
+                                ) { Text("OFF", fontSize = 14.sp, fontWeight = FontWeight.Bold) }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Search & List Section
+                item {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Activated Devices (${devicesList.size})", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            IconButton(onClick = { loadDevices() }) { Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color.Gray) }
+                        }
                         Spacer(modifier = Modifier.height(8.dp))
-                        
                         OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = { Text("নাম বা ডিভাইস আইডি দিয়ে খুঁজুন...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = Color.Gray
-                                )
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFF334155),
-                                unfocusedBorderColor = Color(0xFF1E293B)
-                            )
+                            value = searchQuery, onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search by name or device ID...") },
+                            singleLine = true, modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.Gray) },
+                            colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = Color(0xFF334155), unfocusedBorderColor = Color(0xFF1E293B))
                         )
                     }
                 }
 
                 if (isLoadingDevices) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = Color(0xFF38BDF8))
                         }
                     }
                 } else if (filteredDevices.isEmpty()) {
                     item {
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "কোন ডিভাইস পাওয়া যায়নি।",
-                                color = Color.Gray,
-                                fontSize = 13.sp,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                textAlign = TextAlign.Center
-                            )
+                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.5f)), modifier = Modifier.fillMaxWidth()) {
+                            Text("No devices found.", color = Color.Gray, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center)
                         }
                     }
                 } else {
                     items(filteredDevices) { device ->
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                            colors = CardDefaults.cardColors(containerColor = if (device.isBanned) Color(0xFF3F1A1A) else Color(0xFF0F172A)),
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(12.dp))
+                            modifier = Modifier.fillMaxWidth().border(1.dp, if (device.isBanned) Color(0xFFEF4444) else Color(0xFF1E293B), RoundedCornerShape(12.dp))
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = device.name,
-                                        color = Color.White,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(device.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                        if (device.isBanned) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Box(modifier = Modifier.background(Color(0xFFEF4444), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                                Text("BANNED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "ID: ${device.id}",
-                                        color = Color(0xFF38BDF8),
-                                        fontSize = 12.sp,
-                                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                                    )
+                                    Text("ID: ${device.id}", color = Color(0xFF38BDF8), fontSize = 12.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "মেয়াদ: ${device.expire}",
-                                        color = Color.LightGray,
-                                        fontSize = 11.sp
-                                    )
+                                    Text("Expire: ${device.expire}", color = Color.LightGray, fontSize = 11.sp)
                                 }
                                 
-                                IconButton(
-                                    onClick = { deleteDevice(device.id) },
-                                    modifier = Modifier
-                                        .background(Color(0xFF3F1A1A), RoundedCornerShape(8.dp))
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Device",
-                                        tint = Color(0xFFEF4444),
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    // Edit
+                                    IconButton(
+                                        onClick = { 
+                                            editDeviceItem = device
+                                            editInputName = device.name
+                                            editInputDays = 30f // Default add days
+                                            showEditDialog = true
+                                        },
+                                        modifier = Modifier.background(Color(0xFF1E293B), RoundedCornerShape(8.dp)).size(36.dp)
+                                    ) { Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color(0xFF38BDF8), modifier = Modifier.size(18.dp)) }
+                                    
+                                    // Ban/Unban
+                                    IconButton(
+                                        onClick = { toggleBanDevice(device) },
+                                        modifier = Modifier.background(if (device.isBanned) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f), RoundedCornerShape(8.dp)).size(36.dp)
+                                    ) { Icon(if (device.isBanned) Icons.Default.CheckCircle else Icons.Default.Block, contentDescription = "Ban", tint = if (device.isBanned) Color(0xFF10B981) else Color(0xFFF59E0B), modifier = Modifier.size(18.dp)) }
+
+                                    // Delete
+                                    IconButton(
+                                        onClick = { deleteDevice(device.id) },
+                                        modifier = Modifier.background(Color(0xFF3F1A1A), RoundedCornerShape(8.dp)).size(36.dp)
+                                    ) { Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp)) }
                                 }
                             }
                         }
@@ -651,5 +533,39 @@ fun AdminPanel() {
                 }
             }
         }
+    }
+
+    if (showEditDialog && editDeviceItem != null) {
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Device", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editInputName, onValueChange = { editInputName = it },
+                        label = { Text("User Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Add more days from today: ${editInputDays.toInt()} Days", color = Color.White, fontSize = 14.sp)
+                    Slider(
+                        value = editInputDays,
+                        onValueChange = { editInputDays = it },
+                        valueRange = 1f..365f,
+                        steps = 364
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = { 
+                    saveDevice(editDeviceItem!!.id, editInputName, editInputDays.toInt(), editDeviceItem!!.isBanned, true) 
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel", color = Color.LightGray) }
+            },
+            containerColor = Color(0xFF0F172A),
+            titleContentColor = Color.White
+        )
     }
 }
