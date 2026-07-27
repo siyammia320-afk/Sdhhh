@@ -303,9 +303,9 @@ fun AuthBarrier(
                         FloatingActionButton(
                             onClick = { forceUserMode = false },
                             modifier = Modifier
-                                .align(Alignment.BottomStart)
-                                .padding(16.dp)
-                                .navigationBarsPadding(),
+                                .align(Alignment.TopStart)
+                                .padding(top = 100.dp, start = 16.dp)
+                                .statusBarsPadding(),
                             containerColor = Color(0xFF38BDF8),
                             contentColor = Color.White
                         ) {
