@@ -24,6 +24,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -601,6 +606,101 @@ fun AuthScreen(auth: FirebaseAuth) {
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(
+                    modifier = Modifier.weight(1.0f),
+                    color = Color.Gray.copy(alpha = 0.3f)
+                )
+                Text(
+                    text = "অথবা",
+                    color = Color.Gray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                HorizontalDivider(
+                    modifier = Modifier.weight(1.0f),
+                    color = Color.Gray.copy(alpha = 0.3f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Google Sign-In Button
+            var isGoogleLoading by remember { mutableStateOf(false) }
+
+            Button(
+                onClick = {
+                    isGoogleLoading = true
+                    errorMessage = null
+                    val credentialManager = CredentialManager.create(context)
+                    val googleIdOption = GetGoogleIdOption.Builder()
+                        .setFilterByAuthorizedAccounts(false)
+                        .setServerClientId("171803187901-jac8d7m1bv2er6n1lruvnrfuijaohurg.apps.googleusercontent.com")
+                        .setAutoSelectEnabled(true)
+                        .build()
+
+                    val request = GetCredentialRequest.Builder()
+                        .addCredentialOption(googleIdOption)
+                        .build()
+
+                    scope.launch {
+                        try {
+                            val result = credentialManager.getCredential(context, request)
+                            val credential = result.credential
+                            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                            val idToken = googleIdTokenCredential.idToken
+                            val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+                            auth.signInWithCredential(firebaseCredential).await()
+                            Toast.makeText(context, "গুগল দিয়ে সফলভাবে লগইন করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            errorMessage = "গুগল সাইন-ইন ব্যর্থ হয়েছে: ${e.localizedMessage ?: e.toString()}"
+                        } finally {
+                            isGoogleLoading = false
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = !isGoogleLoading && !isLoading
+            ) {
+                if (isGoogleLoading) {
+                    CircularProgressIndicator(
+                        color = Color.Black,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "G  ",
+                            color = Color(0xFFEA4335),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp
+                        )
+                        Text(
+                            text = "গুগল দিয়ে লগইন করুন (Google)",
+                            color = Color.Black,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
