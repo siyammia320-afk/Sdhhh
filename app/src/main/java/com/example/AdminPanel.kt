@@ -69,7 +69,7 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     var editInputName by remember { mutableStateOf("") }
     var editInputDays by remember { mutableFloatStateOf(30f) }
 
-    val dbBaseUrl = "https://my-original-apk-default-rtdb.firebaseio.com"
+    val dbBaseUrl = "https://all-admin-pnal-default-rtdb.firebaseio.com"
 
     suspend fun getIdToken(): String {
         return try {
@@ -229,7 +229,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
     val totalBanned = devicesList.count { it.isBanned && (isOwner || it.approvedBy.lowercase() == myEmail) }
 
     var showSupportDialog by remember { mutableStateOf(false) }
-    var showSubAdminsDialog by remember { mutableStateOf(false) }
     var showNoticeDialog by remember { mutableStateOf(false) }
     var noticeInputText by remember { mutableStateOf("") }
     var isSendingNotice by remember { mutableStateOf(false) }
@@ -283,14 +282,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
                     Text("Device & App Control Center", color = Color.Gray, fontSize = 12.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (isOwner) {
-                        IconButton(
-                            onClick = { showSubAdminsDialog = true },
-                            modifier = Modifier.background(Color(0xFFEAB308).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFEAB308).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                        ) {
-                            Icon(Icons.Default.ManageAccounts, contentDescription = "Manage Sub-Admins", tint = Color(0xFFEAB308))
-                        }
-                    }
                     IconButton(
                         onClick = { showNoticeDialog = true },
                         modifier = Modifier.background(Color(0xFFF59E0B).copy(alpha = 0.2f), RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFF59E0B).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
@@ -529,10 +520,6 @@ fun AdminPanel(onSwitchToUser: () -> Unit = {}) {
             onDismiss = { showSupportDialog = false },
             isOwner = isOwner
         )
-    }
-
-    if (showSubAdminsDialog) {
-        SubAdminManagerDialog(onDismiss = { showSubAdminsDialog = false })
     }
 
     if (showNoticeDialog) {

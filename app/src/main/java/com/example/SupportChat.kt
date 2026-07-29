@@ -44,7 +44,7 @@ suspend fun fetchMessages(userId: String): List<ChatMessage> {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyList()
         val client = OkHttpClient()
-        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
+        val url = "https://all-admin-pnal-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
         if (!response.isSuccessful) {
@@ -87,7 +87,7 @@ suspend fun fetchAllConversations(): List<String> {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyList()
         val client = OkHttpClient()
-        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages.json?shallow=true&auth=$token"
+        val url = "https://all-admin-pnal-default-rtdb.firebaseio.com/support_messages.json?shallow=true&auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
         val body = response.body?.string()?.trim() ?: ""
@@ -114,7 +114,7 @@ suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderNa
         val currentUserId = auth.currentUser?.uid ?: return
         val client = OkHttpClient()
         
-        val newMsgRef = "https://my-original-apk-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
+        val newMsgRef = "https://all-admin-pnal-default-rtdb.firebaseio.com/support_messages/$userId.json?auth=$token"
         // Generate simple ID by posting
         val jsonPayload = JSONObject().apply {
             put("text", text)
@@ -129,7 +129,7 @@ suspend fun sendMessage(userId: String, text: String, isAdmin: Boolean, senderNa
         withContext(Dispatchers.IO) { client.newCall(request).execute() }.close()
 
         if (!isAdmin) {
-            val metaUrl = "https://my-original-apk-default-rtdb.firebaseio.com/support_metadata/$userId.json?auth=$token"
+            val metaUrl = "https://all-admin-pnal-default-rtdb.firebaseio.com/support_metadata/$userId.json?auth=$token"
             val metaPayload = JSONObject().apply {
                 put("displayName", senderName)
                 put("adminEmail", adminEmail)
@@ -256,7 +256,7 @@ suspend fun fetchConversationsMetadata(): Map<String, Pair<String, String>> {
         val auth = FirebaseAuth.getInstance()
         val token = auth.currentUser?.getIdToken(false)?.await()?.token ?: return emptyMap()
         val client = OkHttpClient()
-        val url = "https://my-original-apk-default-rtdb.firebaseio.com/support_metadata.json?auth=$token"
+        val url = "https://all-admin-pnal-default-rtdb.firebaseio.com/support_metadata.json?auth=$token"
         val request = Request.Builder().url(url).build()
         val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
         val body = response.body?.string() ?: ""

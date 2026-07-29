@@ -668,30 +668,31 @@ fun TargetedNoticeOverlay() {
         while (true) {
             try {
                 val auth = FirebaseAuth.getInstance()
-                val token = auth.currentUser?.getIdToken(false)?.await()?.token
-                if (token != null) {
-                    val client = OkHttpClient()
-                    val url = "https://my-original-apk-default-rtdb.firebaseio.com/notices/$adminId.json?auth=$token"
-                    val request = Request.Builder().url(url).build()
-                    val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
-                    val body = response.body?.string() ?: ""
-                    response.close()
+                val token = try { auth.currentUser?.getIdToken(false)?.await()?.token } catch(e: Exception) { null }
+                
+                val client = OkHttpClient()
+                val url = "https://all-admin-pnal-default-rtdb.firebaseio.com/notices/$adminId.json" + 
+                    if (token != null) "?auth=$token" else ""
+                
+                val request = Request.Builder().url(url).build()
+                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
+                val body = response.body?.string() ?: ""
+                response.close()
+                
+                if (body.isNotEmpty() && body != "null") {
+                    val json = JSONObject(body)
+                    val text = json.optString("text", "")
+                    val ts = json.optLong("timestamp", 0L)
                     
-                    if (body.isNotEmpty() && body != "null") {
-                        val json = JSONObject(body)
-                        val text = json.optString("text", "")
-                        val ts = json.optLong("timestamp", 0L)
+                    if (ts > lastNoticeTimestamp && text.isNotEmpty()) {
+                        noticeText = text
+                        isVisible = true
+                        lastNoticeTimestamp = ts
+                        prefs.edit().putLong("last_notice_ts_$adminId", ts).apply()
                         
-                        if (ts > lastNoticeTimestamp && text.isNotEmpty()) {
-                            noticeText = text
-                            isVisible = true
-                            lastNoticeTimestamp = ts
-                            prefs.edit().putLong("last_notice_ts_$adminId", ts).apply()
-                            
-                            // Hide after 5 seconds
-                            kotlinx.coroutines.delay(5000)
-                            isVisible = false
-                        }
+                        // Hide after 5 seconds
+                        kotlinx.coroutines.delay(5000)
+                        isVisible = false
                     }
                 }
             } catch (e: Exception) { }
@@ -741,7 +742,7 @@ class MainActivity : ComponentActivity() {
           val options = com.google.firebase.FirebaseOptions.Builder()
             .setApplicationId("1:171803187901:android:06f962b35043d369bcf5d4")
             .setApiKey("AIzaSyDoegs-mez3YrhxM_uzx6Q6vKqifR5FXYQ")
-            .setDatabaseUrl("https://my-original-apk-default-rtdb.firebaseio.com")
+            .setDatabaseUrl("https://all-admin-pnal-default-rtdb.firebaseio.com")
             .setProjectId("my-original-apk")
             .setStorageBucket("my-original-apk.firebasestorage.app")
             .build()
@@ -773,12 +774,10 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-        AuthBarrier {
           ActivationBarrier {
             TargetedNoticeOverlay()
             MainScreen()
           }
-        }
       }
     }
   }
