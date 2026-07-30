@@ -2,12 +2,13 @@ package com.example
 
 import com.example.ui.theme.font.LiveCkDialog
 import com.example.ui.theme.font.MenuDialog
-import com.example.ui.theme.font.ActivationBarrier
-import com.example.SupportChatDialog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.FirebaseApp
 import kotlinx.coroutines.tasks.await
+import android.app.Activity
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
@@ -58,6 +59,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Login
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -77,6 +79,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -774,10 +777,8 @@ class MainActivity : ComponentActivity() {
     enableEdgeToEdge()
     setContent {
       MyApplicationTheme {
-          ActivationBarrier {
-            TargetedNoticeOverlay()
-            MainScreen()
-          }
+        TargetedNoticeOverlay()
+        MainScreen()
       }
     }
   }
@@ -801,7 +802,26 @@ private fun getCookieValue(cookieString: String?, key: String): String? {
 @Composable
 fun MainScreen() {
   val context = LocalContext.current
+  val activity = context as? Activity
   
+  var isAppAuthorized by remember { mutableStateOf<Boolean?>(null) }
+
+  LaunchedEffect(Unit) {
+    val status = a.checkStatus()
+    if (!status) {
+      activity?.finishAffinity()
+    } else {
+      isAppAuthorized = true
+    }
+  }
+
+  if (isAppAuthorized == null) {
+      Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+          CircularProgressIndicator()
+      }
+      return
+  }
+
   val clipboardManager = LocalClipboardManager.current
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
@@ -818,12 +838,10 @@ fun MainScreen() {
   var showCreatorDialog by remember { mutableStateOf(false) }
   var showHistoryDialog by remember { mutableStateOf(false) }
   var showCookieLoginDialog by remember { mutableStateOf(false) }
-  var showSupportDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
   var isDesktopMode by remember { mutableStateOf(prefs.getBoolean("is_desktop_mode", false)) }
   var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_proxy_enabled", false)) }
-  var isAndroidIdEnabled by remember { mutableStateOf(true) }
   var dnsServer by remember { mutableStateOf("8.8.8.8") }
   
   var cookieLoginInput by remember { mutableStateOf("") }
@@ -907,10 +925,6 @@ fun MainScreen() {
       title = { Text("Settings") },
       text = {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Android ID Reporting: ")
-                Switch(checked = isAndroidIdEnabled, onCheckedChange = { isAndroidIdEnabled = it })
-            }
             OutlinedTextField(
                 value = dnsServer,
                 onValueChange = { 
@@ -962,17 +976,8 @@ fun MainScreen() {
           }
         },
         actions = {
-          IconButton(onClick = { showSupportDialog = true }) {
-            Icon(Icons.Default.SupportAgent, contentDescription = "Support SMS", tint = Color(0xFF38BDF8))
-          }
           IconButton(onClick = { showSettingsDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Settings")
-          }
-          IconButton(onClick = {
-            FirebaseAuth.getInstance().signOut()
-            Toast.makeText(context, "লগআউট করা হয়েছে", Toast.LENGTH_SHORT).show()
-          }) {
-            Icon(Icons.Default.Lock, contentDescription = "Logout")
           }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -1526,7 +1531,7 @@ fun MainScreen() {
               }
               
               // Android ID Interface
-              addJavascriptInterface(AndroidIdInterface({ isAndroidIdEnabled }, context), "AndroidIDInterface")
+              addJavascriptInterface(AndroidIdInterface({ true }, context), "AndroidIDInterface")
 
               // Accept Third-Party Cookies
               val cookieManager = CookieManager.getInstance()
@@ -1908,23 +1913,6 @@ fun MainScreen() {
         }
       }
     )
-  }
-
-  if (showSupportDialog) {
-    val user = FirebaseAuth.getInstance().currentUser
-    val uid = user?.uid
-    if (uid != null) {
-      val adminEmail = prefs.getString("my_admin_email", "owner") ?: "owner"
-      SupportChatDialog(
-        userId = uid,
-        onDismiss = { showSupportDialog = false },
-        isAdminMode = false,
-        senderName = user.displayName ?: "User",
-        adminEmail = adminEmail
-      )
-    } else {
-      showSupportDialog = false
-    }
   }
 
   // Set Range Dialog
