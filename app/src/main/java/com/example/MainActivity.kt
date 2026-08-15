@@ -806,13 +806,55 @@ fun MainScreen() {
   
   var isAppAuthorized by remember { mutableStateOf<Boolean?>(null) }
 
+  val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+  var deviceNotApprovedDialog by remember { mutableStateOf(false) }
+
   LaunchedEffect(Unit) {
-    val status = a.checkStatus()
-    if (!status) {
+    val result = a.checkStatusAndDevice(deviceId)
+    if (result == "GLOBAL_OFF") {
       activity?.finishAffinity()
+    } else if (result == "DEVICE_NOT_APPROVED") {
+      deviceNotApprovedDialog = true
     } else {
       isAppAuthorized = true
     }
+  }
+
+  if (deviceNotApprovedDialog) {
+    AlertDialog(
+      onDismissRequest = { activity?.finishAffinity() },
+      title = { Text("Device Not Approved", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+      text = {
+        Column {
+          Text("Your device is not approved by the Admin. Please copy your Device ID and contact the Admin to get access.", style = MaterialTheme.typography.bodyMedium)
+          Spacer(Modifier.height(16.dp))
+          Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              text = deviceId,
+              modifier = Modifier.padding(12.dp),
+              textAlign = TextAlign.Center,
+              style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+              color = MaterialTheme.colorScheme.primary
+            )
+          }
+        }
+      },
+      confirmButton = {
+        Button(onClick = {
+          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+          val clip = ClipData.newPlainText("Device ID", deviceId)
+          clipboard.setPrimaryClip(clip)
+          Toast.makeText(context, "Device ID copied!", Toast.LENGTH_SHORT).show()
+          activity?.finishAffinity()
+        }) {
+          Text("Copy & Exit")
+        }
+      }
+    )
   }
 
   if (isAppAuthorized == null) {

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Admin Panel</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .status-box {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        .status-on {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status-off {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-on { background-color: #28a745; color: white; flex: 1; margin-right: 5px; }
+        .btn-on:hover { background-color: #218838; }
+        .btn-off { background-color: #dc3545; color: white; flex: 1; margin-left: 5px; }
+        .btn-off:hover { background-color: #c82333; }
+        .btn-approve { background-color: #007bff; color: white; }
+        .btn-approve:hover { background-color: #0056b3; }
+        .btn-remove { background-color: #dc3545; color: white; }
+        .btn-remove:hover { background-color: #c82333; }
+        
+        .device-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            margin-bottom: 8px;
+            border-radius: 5px;
+        }
+        .device-id {
+            font-family: monospace;
+            font-size: 1.1em;
+            color: #333;
+        }
+        .empty-text {
+            color: #888;
+            font-style: italic;
+            text-align: center;
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px 0 0 5px;
+            font-size: 14px;
+        }
+        .input-group button {
+            border-radius: 0 5px 5px 0;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" style="text-align: center;">
+        <h2>Global App Control</h2>
+        <div id="statusDisplay" class="status-box" style="display: none;">
+            App is currently: <span id="currentStatusText">Loading...</span>
+        </div>
+        <div class="controls">
+            <button class="btn-on" onclick="setStatus('ON')">Turn ON App</button>
+            <button class="btn-off" onclick="setStatus('OFF')">Turn OFF App</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Device Approval System</h2>
+        
+        <p style="font-size: 14px; color: #555;">Add a Device ID manually to approve it:</p>
+        <div class="input-group">
+            <input type="text" id="newDeviceId" placeholder="Enter Device ID (e.g. a1b2c3d4e5f6)">
+            <button class="btn-approve" onclick="addCustomDevice()">Approve Device</button>
+        </div>
+
+        <h3 style="margin-top: 30px; color: #dc3545;">Pending Requests</h3>
+        <p style="font-size: 12px; color: #666; margin-top: -10px;">Devices trying to access the app but not approved yet.</p>
+        <ul id="pendingList" class="device-list">
+            <li class="empty-text">Loading...</li>
+        </ul>
+
+        <h3 style="margin-top: 30px; color: #28a745;">Approved Devices</h3>
+        <ul id="approvedList" class="device-list">
+            <li class="empty-text">Loading...</li>
+        </ul>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB4xibLFS3R4zQukGKIGNA6tVzejtfG1a4",
+            authDomain: "fb-lite-pro-vr.firebaseapp.com",
+            databaseURL: "https://fb-lite-pro-vr-default-rtdb.firebaseio.com",
+            projectId: "fb-lite-pro-vr",
+            storageBucket: "fb-lite-pro-vr.firebasestorage.app"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // 1. Listen for Global Status changes
+        const statusRef = database.ref('app_status/status');
+        statusRef.on('value', (snapshot) => {
+            const statusDisplay = document.getElementById('statusDisplay');
+            const currentStatusText = document.getElementById('currentStatusText');
+            statusDisplay.style.display = 'block';
+            
+            const status = snapshot.val();
+            currentStatusText.innerText = status ? status : "NOT SET";
+            
+            if(status === 'ON') {
+                statusDisplay.className = 'status-box status-on';
+            } else {
+                statusDisplay.className = 'status-box status-off';
+            }
+        });
+
+        // Function to update global status
+        function setStatus(newStatus) {
+            database.ref('app_status').set({ status: newStatus })
+            .catch((error) => {
+                alert("Failed to update status. Check Firebase Rules.");
+            });
+        }
+
+        // 2. Listen for Pending Devices
+        const pendingRef = database.ref('pending_devices');
+        pendingRef.on('value', (snapshot) => {
+            const list = document.getElementById('pendingList');
+            list.innerHTML = '';
+            
+            if (!snapshot.exists()) {
+                list.innerHTML = '<li class="empty-text">No pending requests</li>';
+                return;
+            }
+
+            snapshot.forEach((child) => {
+                const deviceId = child.key;
+                const li = document.createElement('li');
+                li.className = 'device-item';
+                li.innerHTML = `
+                    <span class="device-id">${deviceId}</span>
+                    <div>
+                        <button class="btn-approve" onclick="approveDevice('${deviceId}')">Approve</button>
+                        <button class="btn-remove" onclick="removePending('${deviceId}')">Reject</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        });
+
+        // 3. Listen for Approved Devices
+        const approvedRef = database.ref('approved_devices');
+        approvedRef.on('value', (snapshot) => {
+            const list = document.getElementById('approvedList');
+            list.innerHTML = '';
+            
+            if (!snapshot.exists()) {
+                list.innerHTML = '<li class="empty-text">No approved devices yet</li>';
+                return;
+            }
+
+            snapshot.forEach((child) => {
+                const deviceId = child.key;
+                if(child.val() === "true") {
+                    const li = document.createElement('li');
+                    li.className = 'device-item';
+                    li.innerHTML = `
+                        <span class="device-id">${deviceId}</span>
+                        <button class="btn-remove" onclick="removeApproved('${deviceId}')">Revoke Access</button>
+                    `;
+                    list.appendChild(li);
+                }
+            });
+        });
+
+        // Functions for device management
+        function addCustomDevice() {
+            const id = document.getElementById('newDeviceId').value.trim();
+            if(!id) return alert("Please enter a device ID");
+            approveDevice(id);
+            document.getElementById('newDeviceId').value = '';
+        }
+
+        function approveDevice(deviceId) {
+            // Add to approved, remove from pending
+            let updates = {};
+            updates['approved_devices/' + deviceId] = "true";
+            updates['pending_devices/' + deviceId] = null;
+            
+            database.ref().update(updates).catch(e => alert("Error: " + e));
+        }
+
+        function removePending(deviceId) {
+            database.ref('pending_devices/' + deviceId).remove();
+        }
+
+        function removeApproved(deviceId) {
+            if(confirm("Are you sure you want to revoke access for this device?")) {
+                database.ref('approved_devices/' + deviceId).remove();
+            }
+        }
+    </script>
+</body>
+</html>
