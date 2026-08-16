@@ -464,6 +464,7 @@ fun createFacebookAccount(
   context: Context,
   phone: String,
   passwordInput: String,
+  country: String,
   onSuccess: (uid: String, name: String, cookies: String) -> Unit,
   onFailure: (String) -> Unit
 ) {
@@ -497,10 +498,24 @@ fun createFacebookAccount(
       e.printStackTrace()
     }
   }
+
   val activeClient = clientBuilder.build()
 
-  val firstNames = listOf("Jean", "Marie", "Pierre", "Sophie", "Lucas", "Emma", "Louis", "Chloé", "Hugo", "Inès")
-  val lastNames = listOf("Dupont", "Martin", "Durand", "Lefèvre", "Moreau", "Petit", "Roux", "Richard", "Simon", "Laurent")
+  val firstNames = when (country) {
+    "Bangladesh" -> listOf("রাহিম", "করিম", "সাকিব", "শফিকুল", "আব্দুর", "মাসুদ", "আরিফ", "নাজমুল", "তারেক", "ফারুক", "হাসান", "কামরুল", "মেহেদী", "রনি", "সুমন", "রুবেল", "জসিম", "সোহেল", "ইমরান", "আকবর", "রাশেদ", "রিয়াজ", "মিজান", "আনোয়ার", "মাহমুদ", "হাবিব", "শাহিন", "তৌহিদ", "ফয়সাল", "সাগর", "শরীফ", "জাকির", "আলমগীর", "নূর", "তাজুল", "মহিউদ্দিন", "সেলিম", "রুহুল", "জালাল", "বাপ্পি", "শামিম", "সাইফুল", "তন্ময়", "পলাশ", "আশরাফ", "মুকুল", "লিটন", "শাহাদাত", "নাসির", "সাজ্জাদ")
+    "United States" -> listOf("James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Christopher", "Daniel", "Matthew", "Anthony", "Donald", "Mark", "Paul", "Steven", "Andrew", "Kenneth", "Joshua", "Kevin", "Brian", "George", "Edward", "Ronald", "Timothy", "Jason", "Jeffrey", "Ryan", "Jacob", "Gary", "Nicholas", "Eric", "Jonathan", "Stephen", "Larry", "Justin", "Scott", "Brandon", "Benjamin", "Samuel", "Frank", "Gregory", "Raymond", "Alexander", "Patrick", "Jack", "Dennis", "Jerry")
+    "China" -> listOf("雅婷", "雅君", "雅涵", "雅萱", "雅妤", "雅甄", "雅玲", "雅芬", "雅儀", "雅柔", "雅蓉", "雅瑄", "雅穎", "雅琪", "雅晴", "雅雯", "雅潔", "雅瑜", "雅蓁", "雅芸", "雅珊", "雅慈", "雅茹", "雅嫻", "雅薇", "雅彤", "雅恩", "雅榕", "雅媛", "雅寧", "怡婷", "怡君", "怡涵", "怡萱", "怡妤", "怡甄", "怡玲", "怡芬", "怡儀", "怡柔", "怡蓉", "怡瑄", "怡穎", "怡琪", "怡晴", "怡雯", "怡潔", "怡瑜", "怡蓁", "怡芸", "怡珊", "怡慈", "怡茹", "怡嫻", "怡薇", "怡彤", "怡恩", "怡榕", "怡媛", "怡寧", "欣婷", "欣君", "欣涵", "欣萱", "欣妤", "欣甄", "欣玲", "欣芬", "欣儀", "欣柔", "欣蓉", "欣瑄", "欣穎", "欣琪", "欣晴", "欣雯", "欣潔", "欣瑜")
+    "Madagascar" -> listOf("Rakoto", "Rasoa", "Rabe", "Jean", "Marie", "Nirina", "Fanja", "Mialy", "Tiana", "Tahina", "Lova", "Andry", "Hery", "Rivo", "Tolotra", "Vola", "Bodo", "Mamy", "Njaka", "Mihaja", "Lanto", "Naivo", "Solo", "Rija", "Mahefa", "Tojo", "Kanto", "Aina", "Sitraka", "Zo", "Faly", "Haja", "Riana", "Tafita", "Mino", "Dina", "Ndriana", "Malala", "Hasina", "Ony", "Noro", "Tovo", "Zoly", "Ihary", "Lina", "Bako", "Nary", "Fidy", "Rado")
+    else -> listOf("John", "Emma", "Michael", "Sophia", "David")
+  }
+  
+  val lastNames = when (country) {
+    "Bangladesh" -> listOf("তালুকদার", "রহমান", "খান", "চৌধুরী", "আহমেদ", "শেখ", "ইসলাম", "মোল্লা", "মন্ডল", "হাওলাদার", "সরকার", "শিকদার", "ভূঁইয়া", "মির্জা", "খন্দকার", "কাজী", "মজুমদার", "খাঁন", "সৈয়দ", "বিশ্বাস", "মিয়া", "মিয়াঁ", "বেপারী", "খলিফা", "মাহী", "হোসেন", "আকন্দ", "ফকির", "হক", "সানা", "মৃধা", "সৈয়াল", "ফরায়েজী", "মালী", "মুন্সী", "তপাদার", "পাটোয়ারী", "তরফদার", "মহাজন", "দাস", "সাহা", "কৰ্মকার", "দেবনাথ", "ভট্টাচার্য", "শীল", "পাল", "বনিক", "রায়", "মিত্র", "ঘোষ")
+    "United States" -> listOf("Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores", "Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell", "Carter", "Roberts")
+    "China" -> listOf("池", "曾", "張", "熊", "謝", "馮", "彭", "鄧", "馬", "葉", "武", "向", "孫", "柯", "黎", "康", "陳", "林", "黃", "李", "王", "吳", "劉", "蔡", "楊", "許", "鄭", "郭", "洪", "邱", "廖", "賴", "徐", "周", "蘇", "莊", "呂", "江", "何", "蕭", "羅", "高", "潘", "簡", "朱", "鍾", "游", "詹", "胡", "施", "沉", "余", "盧", "趙", "梁", "顏", "翁", "魏", "戴", "方", "宋", "范", "杜", "傅", "侯", "曹", "薛", "丁", "卓", "董", "唐", "藍", "蔣", "石", "紀", "姚", "古", "連")
+    "Madagascar" -> listOf("Andrianampy", "Ramanana", "Ravalomanana", "Andriamanjato", "Rakotomanga", "Randria", "Razafy", "Rasamimanana", "Ratsiraka", "Razafindrakoto", "Andriamandimby", "Rasoamanana", "Rabearivelo", "Razafimahatratra", "Rajoelina", "Rakotondrazaka", "Randrianasolo", "Ravelomanantsoa", "Rakotomalala", "Rasolofondraibe", "Rakotonirina", "Rahajanirina", "Rakotoniaina", "Rabemananjara", "Rakotondrabe", "Rakotoarisoa", "Andrianirina", "Rasoanaivo", "Razafindrabe", "Andriantsilavo", "Rakotovao", "Razafindratandra", "Randriamampionona", "Rakotondramanana", "Ramaroson", "Rakotoarivelo", "Randriamanantena", "Rasolomanana", "Razafindrakondro", "Andriamasinoro", "Rakotomandimby", "Razafimanantsoa", "Rakotoarimanana", "Rakotondrasoa", "Randriamanjaka", "Rasoarimalala", "Rakotozandriny", "Razafindramamba", "Rakotondravony", "Andriantsalama")
+    else -> listOf("Smith", "Johnson", "Williams", "Jones", "Brown")
+  }
   
   val fname = firstNames.random()
   val lname = lastNames.random()
@@ -890,36 +905,43 @@ fun MainScreen() {
   var userName by remember { mutableStateOf("Unknown") }
 
   LaunchedEffect(Unit) {
-    val rawResult = a.checkStatusAndDevice(deviceId)
-    if (rawResult == "GLOBAL_OFF") {
-      activity?.finishAffinity()
-      return@LaunchedEffect
-    }
-    
-    val parts = rawResult.split("|")
-    val result = parts[0]
-    if (parts.size > 1) {
-      userName = parts[1]
-    }
+    while(true) {
+      val rawResult = a.checkStatusAndDevice(deviceId)
+      if (rawResult == "GLOBAL_OFF") {
+        activity?.finishAffinity()
+        return@LaunchedEffect
+      }
+      
+      val parts = rawResult.split("|")
+      val result = parts[0]
+      if (parts.size > 1) {
+        userName = parts[1]
+      }
 
-    when {
-      result == "BANNED" -> {
-        blockReason = "BANNED"
-        deviceNotApprovedDialog = true
+      when {
+        result == "BANNED" -> {
+          blockReason = "BANNED"
+          deviceNotApprovedDialog = true
+          isAppAuthorized = false
+        }
+        result == "NOT_FOUND" -> {
+          blockReason = "NOT_FOUND"
+          deviceNotApprovedDialog = true
+          isAppAuthorized = false
+        }
+        result.startsWith("EXPIRED_") -> {
+          blockReason = "EXPIRED"
+          val timestamp = result.removePrefix("EXPIRED_").toLongOrNull() ?: 0L
+          expiryDateText = if (timestamp > 0) java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(timestamp)) else "N/A"
+          deviceNotApprovedDialog = true
+          isAppAuthorized = false
+        }
+        result.startsWith("APPROVED_") -> {
+          isAppAuthorized = true
+          deviceNotApprovedDialog = false
+        }
       }
-      result == "NOT_FOUND" -> {
-        blockReason = "NOT_FOUND"
-        deviceNotApprovedDialog = true
-      }
-      result.startsWith("EXPIRED_") -> {
-        blockReason = "EXPIRED"
-        val timestamp = result.removePrefix("EXPIRED_").toLongOrNull() ?: 0L
-        expiryDateText = if (timestamp > 0) java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(timestamp)) else "N/A"
-        deviceNotApprovedDialog = true
-      }
-      result.startsWith("APPROVED_") -> {
-        isAppAuthorized = true
-      }
+      kotlinx.coroutines.delay(3000)
     }
   }
 
@@ -1204,6 +1226,7 @@ fun MainScreen() {
   var proxyPass by remember { mutableStateOf(prefs.getString("proxy_pass", "") ?: "") }
   var showProxyConfigDialog by remember { mutableStateOf(false) }
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
+  var selectedCountry by remember { mutableStateOf(prefs.getString("selected_country", "Bangladesh") ?: "Bangladesh") }
 
   // Loop for active OTP checking - checks every 2 seconds with a 20-minute timeout
 
@@ -1315,7 +1338,10 @@ fun MainScreen() {
                           .padding(vertical = 4.dp)
                           .clickable {
                              clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(range))
-                             Toast.makeText(context, "Range copied!", Toast.LENGTH_SHORT).show()
+                             selectedRange = range
+                             prefs.edit().putString("saved_range", range).apply()
+                             Toast.makeText(context, "Range Copied & Auto Setup!", Toast.LENGTH_SHORT).show()
+                             showLiveConsoleDialog = false
                           },
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                      ) {
@@ -2091,6 +2117,40 @@ fun MainScreen() {
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
 
+          // Country Selector
+          var countryExpanded by remember { mutableStateOf(false) }
+          val countries = listOf("Bangladesh", "United States", "China", "Madagascar")
+          
+          ExposedDropdownMenuBox(
+            expanded = countryExpanded,
+            onExpandedChange = { countryExpanded = !countryExpanded }
+          ) {
+            OutlinedTextField(
+              value = selectedCountry,
+              onValueChange = { },
+              readOnly = true,
+              label = { Text("একাউন্ট নেম টাইপ (Country)") },
+              trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryExpanded) },
+              colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+              modifier = Modifier.fillMaxWidth().menuAnchor()
+            )
+            ExposedDropdownMenu(
+              expanded = countryExpanded,
+              onDismissRequest = { countryExpanded = false }
+            ) {
+              countries.forEach { selectionOption ->
+                DropdownMenuItem(
+                  text = { Text(selectionOption) },
+                  onClick = {
+                    selectedCountry = selectionOption
+                    prefs.edit().putString("selected_country", selectionOption).apply()
+                    countryExpanded = false
+                  }
+                )
+              }
+            }
+          }
+
           // Editable password field
           OutlinedTextField(
             value = customPassword,
@@ -2137,6 +2197,7 @@ fun MainScreen() {
                       context = context,
                       phone = phoneNumber,
                       passwordInput = customPassword,
+                      country = selectedCountry,
                       onSuccess = { uid, name, cookies ->
                         scope.launch {
                           lastCreatedUid = uid

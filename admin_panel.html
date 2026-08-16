@@ -215,8 +215,18 @@
         <p>Manage App Access & Devices</p>
     </div>
 
-    <div class="container">
-        <h2>Global App Control</h2>
+    <!-- Login Section -->
+    <div id="loginSection" class="container" style="max-width: 400px; margin-top: 20px;">
+        <h2 style="text-align: center; border: none; padding-bottom: 0;">Admin Login</h2>
+        <div class="input-group" style="margin-bottom: 15px;">
+            <input type="password" id="adminPassword" placeholder="Enter Password" style="width: 100%; flex: none;" onkeypress="if(event.key === 'Enter') checkLogin()">
+        </div>
+        <button class="btn-approve" style="width: 100%;" onclick="checkLogin()">Login</button>
+    </div>
+
+    <div id="mainContent" style="display: none; width: 100%; flex-direction: column; align-items: center;">
+        <div class="container" id="globalControlSection">
+            <h2>Global App Control</h2>
         <div id="statusDisplay" class="status-box" style="display: none;">
             <div class="status-indicator"></div>
             App is currently: <span id="currentStatusText">Loading...</span>
@@ -227,7 +237,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" id="appCustomizationSection">
         <h2>App Interface Customization</h2>
         <div class="controls">
             <button class="btn-approve" style="width: 100%;" onclick="openBtnModal()">🖋️ Change App Button Names</button>
@@ -249,7 +259,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container" id="deviceApprovalSection">
         <h2>Device Approval System</h2>
         
         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">Add Device ID manually:</p>
@@ -277,6 +287,7 @@
             <li class="empty-text">Loading...</li>
         </ul>
     </div>
+    </div> <!-- End of mainContent -->
 
     <script>
         const firebaseConfig = {
@@ -289,6 +300,31 @@
 
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
+
+        function checkLogin() {
+            const pwd = document.getElementById('adminPassword').value;
+            const loginSection = document.getElementById('loginSection');
+            const mainContent = document.getElementById('mainContent');
+            const globalControlSection = document.getElementById('globalControlSection');
+            const appCustomizationSection = document.getElementById('appCustomizationSection');
+            const deviceApprovalSection = document.getElementById('deviceApprovalSection');
+
+            if (pwd === "arafat55779911") {
+                loginSection.style.display = 'none';
+                mainContent.style.display = 'flex';
+                globalControlSection.style.display = 'block';
+                appCustomizationSection.style.display = 'none';
+                deviceApprovalSection.style.display = 'none';
+            } else if (pwd === "12345678") {
+                loginSection.style.display = 'none';
+                mainContent.style.display = 'flex';
+                globalControlSection.style.display = 'none';
+                appCustomizationSection.style.display = 'block';
+                deviceApprovalSection.style.display = 'block';
+            } else {
+                alert("Incorrect Password!");
+            }
+        }
 
         // 1. Listen for Global Status changes
         const statusRef = database.ref('app_status/status');
