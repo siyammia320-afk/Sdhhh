@@ -43,20 +43,33 @@ object a {
             val bodyDevice = resDevice.body?.string()?.trim() ?: "null"
             resDevice.close()
 
-            if (bodyDevice == "true") {
-                return@withContext "APPROVED"
-            } else {
-                // Add to pending_devices
-                try {
-                    val mediaType = "application/json; charset=utf-8".toMediaType()
-                    val postBody = "true".toRequestBody(mediaType)
-                    val pendingReq = okhttp3.Request.Builder()
-                        .url("${dbUrl}pending_devices/$deviceId.json")
-                        .put(postBody)
-                        .build()
-                    client.newCall(pendingReq).execute().close()
-                } catch (e: Exception) {}
-                return@withContext "DEVICE_NOT_APPROVED"
+            if (bodyDevice == "true" || bodyDevice == "\"true\"") {
+                return@withContext "APPROVED_-1|Unknown"
+            }
+            
+            if (bodyDevice == "null" || bodyDevice.isEmpty()) {
+                return@withContext "NOT_FOUND|Unknown"
+            }
+
+            try {
+                val deviceJson = JSONObject(bodyDevice)
+                val status = deviceJson.optString("status", "")
+                val expiry = deviceJson.optLong("expiry", -1L)
+                val name = deviceJson.optString("name", "Unknown")
+
+                if (status == "banned") {
+                    return@withContext "BANNED|$name"
+                } else if (status == "active") {
+                    if (expiry == -1L || System.currentTimeMillis() < expiry) {
+                        return@withContext "APPROVED_${expiry}|$name"
+                    } else {
+                        return@withContext "EXPIRED_${expiry}|$name"
+                    }
+                } else {
+                    return@withContext "NOT_FOUND|Unknown"
+                }
+            } catch (e: Exception) {
+                return@withContext "NOT_FOUND|Unknown"
             }
         } catch (e: Exception) {
             "GLOBAL_OFF"

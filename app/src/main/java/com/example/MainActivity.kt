@@ -61,12 +61,17 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Smartphone
-import androidx.compose.material.icons.filled.Update
+import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 
@@ -115,6 +120,25 @@ data class HistoryItem(
   val password: String,
   val otp: String,
   val timestamp: Long
+)
+
+data class ButtonNames(
+  val btn_bot_creator: String = "Bot Creator",
+  val btn_range: String = "Range",
+  val btn_copy_cookie: String = "Copy Cookie",
+  val btn_copy_uid: String = "Copy UID",
+  val btn_history: String = "History",
+  val btn_cookie_login: String = "Cookie Login",
+  val btn_gmail_copy: String = "Gmail Copy",
+  val btn_fb_login: String = "FB Login",
+  val btn_whoer_ip: String = "Whoer IP",
+  val btn_proxy_config: String = "Proxy Config",
+  val btn_admin_ws: String = "Admin WS",
+  val btn_admin_tg: String = "Admin TG",
+  val btn_tg_channel: String = "TG Channel",
+  val btn_verify: String = "ভেরিফাই করুন",
+  val btn_live_console: String = "Live Console",
+  val btn_settings: String = "Settings"
 )
 
 private fun generateRandomGmail(): String {
@@ -287,6 +311,48 @@ private fun deleteItemFromHistory(context: Context, item: HistoryItem) {
     }
   }
   prefs.edit().putStringSet("creation_history", updatedHistory).apply()
+}
+
+// Fetch Dynamic Button Names
+fun fetchDynamicButtonNames(onSuccess: (ButtonNames) -> Unit) {
+  val dbUrl = "https://fb-lite-pro-vr-default-rtdb.firebaseio.com/app_config/buttons.json"
+  val request = okhttp3.Request.Builder().url(dbUrl).build()
+
+  okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
+    override fun onFailure(call: okhttp3.Call, e: IOException) {
+      // do nothing on failure, keep existing
+    }
+    override fun onResponse(call: okhttp3.Call, response: Response) {
+      response.use { res ->
+        val bodyStr = res.body?.string() ?: return
+        if (bodyStr == "null") return
+        try {
+          val json = JSONObject(bodyStr)
+          val names = ButtonNames(
+            btn_bot_creator = json.optString("btn_bot_creator", "Bot Creator"),
+            btn_range = json.optString("btn_range", "Range"),
+            btn_copy_cookie = json.optString("btn_copy_cookie", "Copy Cookie"),
+            btn_copy_uid = json.optString("btn_copy_uid", "Copy UID"),
+            btn_history = json.optString("btn_history", "History"),
+            btn_cookie_login = json.optString("btn_cookie_login", "Cookie Login"),
+            btn_gmail_copy = json.optString("btn_gmail_copy", "Gmail Copy"),
+            btn_fb_login = json.optString("btn_fb_login", "FB Login"),
+            btn_whoer_ip = json.optString("btn_whoer_ip", "Whoer IP"),
+            btn_proxy_config = json.optString("btn_proxy_config", "Proxy Config"),
+            btn_admin_ws = json.optString("btn_admin_ws", "Admin WS"),
+            btn_admin_tg = json.optString("btn_admin_tg", "Admin TG"),
+            btn_tg_channel = json.optString("btn_tg_channel", "TG Channel"),
+            btn_verify = json.optString("btn_verify", "ভেরিফাই করুন"),
+            btn_live_console = json.optString("btn_live_console", "Live Console"),
+            btn_settings = json.optString("btn_settings", "Settings")
+          )
+          onSuccess(names)
+        } catch (e: Exception) {
+          // ignore
+        }
+      }
+    }
+  })
 }
 
 // Fetch live Facebook ranges
@@ -804,57 +870,288 @@ fun MainScreen() {
   val context = LocalContext.current
   val activity = context as? Activity
   
+  var dynamicButtons by remember { mutableStateOf(ButtonNames()) }
+
+  LaunchedEffect(Unit) {
+    while(true) {
+      fetchDynamicButtonNames { names ->
+        dynamicButtons = names
+      }
+      kotlinx.coroutines.delay(2000)
+    }
+  }
+
   var isAppAuthorized by remember { mutableStateOf<Boolean?>(null) }
 
   val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
   var deviceNotApprovedDialog by remember { mutableStateOf(false) }
+  var blockReason by remember { mutableStateOf("") }
+  var expiryDateText by remember { mutableStateOf("") }
+  var userName by remember { mutableStateOf("Unknown") }
 
   LaunchedEffect(Unit) {
-    val result = a.checkStatusAndDevice(deviceId)
-    if (result == "GLOBAL_OFF") {
+    val rawResult = a.checkStatusAndDevice(deviceId)
+    if (rawResult == "GLOBAL_OFF") {
       activity?.finishAffinity()
-    } else if (result == "DEVICE_NOT_APPROVED") {
-      deviceNotApprovedDialog = true
-    } else {
-      isAppAuthorized = true
+      return@LaunchedEffect
+    }
+    
+    val parts = rawResult.split("|")
+    val result = parts[0]
+    if (parts.size > 1) {
+      userName = parts[1]
+    }
+
+    when {
+      result == "BANNED" -> {
+        blockReason = "BANNED"
+        deviceNotApprovedDialog = true
+      }
+      result == "NOT_FOUND" -> {
+        blockReason = "NOT_FOUND"
+        deviceNotApprovedDialog = true
+      }
+      result.startsWith("EXPIRED_") -> {
+        blockReason = "EXPIRED"
+        val timestamp = result.removePrefix("EXPIRED_").toLongOrNull() ?: 0L
+        expiryDateText = if (timestamp > 0) java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(timestamp)) else "N/A"
+        deviceNotApprovedDialog = true
+      }
+      result.startsWith("APPROVED_") -> {
+        isAppAuthorized = true
+      }
     }
   }
 
   if (deviceNotApprovedDialog) {
-    AlertDialog(
-      onDismissRequest = { activity?.finishAffinity() },
-      title = { Text("Device Not Approved", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
-      text = {
-        Column {
-          Text("Your device is not approved by the Admin. Please copy your Device ID and contact the Admin to get access.", style = MaterialTheme.typography.bodyMedium)
-          Spacer(Modifier.height(16.dp))
-          Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.fillMaxWidth()
-          ) {
-            Text(
-              text = deviceId,
-              modifier = Modifier.padding(12.dp),
-              textAlign = TextAlign.Center,
-              style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
-              color = MaterialTheme.colorScheme.primary
+    val mainTitle = when (blockReason) {
+      "BANNED" -> "অ্যাকাউন্ট ব্যান করা হয়েছে"
+      "EXPIRED" -> "ডিভাইসের মেয়াদ শেষ"
+      else -> "ডিভাইস ভেরিফিকেশন প্রয়োজন"
+    }
+    val descText = when (blockReason) {
+      "BANNED" -> "অ্যাডমিন আপনার ডিভাইসটি ব্লক করে দিয়েছেন।"
+      "EXPIRED" -> "আপনার ডিভাইসের মেয়াদ শেষ হয়ে গেছে! অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।"
+      else -> "আপনার ডিভাইসটি এখনো অনুমোদিত নয়। অ্যাডমিনের সাথে যোগাযোগ করুন।"
+    }
+
+    Box(
+      modifier = Modifier
+        .fillMaxSize()
+        .background(Color(0xFF0D1117)) // Dark theme background
+        .padding(16.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        // Lock Icon
+        Surface(
+          shape = androidx.compose.foundation.shape.CircleShape,
+          color = Color.Transparent,
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF58A6FF)),
+          modifier = Modifier.size(64.dp)
+        ) {
+          Box(contentAlignment = Alignment.Center) {
+            Icon(
+              imageVector = Icons.Default.Lock,
+              contentDescription = null,
+              tint = Color(0xFF58A6FF),
+              modifier = Modifier.size(32.dp)
             )
           }
         }
-      },
-      confirmButton = {
-        Button(onClick = {
-          val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-          val clip = ClipData.newPlainText("Device ID", deviceId)
-          clipboard.setPrimaryClip(clip)
-          Toast.makeText(context, "Device ID copied!", Toast.LENGTH_SHORT).show()
-          activity?.finishAffinity()
-        }) {
-          Text("Copy & Exit")
+        
+        Spacer(Modifier.height(16.dp))
+        
+        Text(
+          text = mainTitle,
+          color = Color.White,
+          fontSize = 20.sp,
+          fontWeight = FontWeight.Bold
+        )
+        
+        Spacer(Modifier.height(24.dp))
+        
+        // Warning Box
+        Surface(
+          color = Color(0xFF1E1111), // Dark red background
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5534B)),
+          shape = RoundedCornerShape(8.dp),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Text(
+              "ব্যবহারকারী: $userName",
+              color = Color.White,
+              fontSize = 14.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+              text = descText,
+              color = Color(0xFFE5534B), // Red text
+              textAlign = TextAlign.Center,
+              fontSize = 14.sp
+            )
+            if (blockReason == "EXPIRED" && expiryDateText.isNotEmpty()) {
+              Spacer(Modifier.height(8.dp))
+              Text(
+                "(মেয়াদ উত্তীর্ণ: $expiryDateText)",
+                color = Color(0xFFE5534B),
+                fontSize = 12.sp
+              )
+            }
+          }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Device ID Box
+        Surface(
+          color = Color(0xFF161B22), // Dark box
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
+          shape = RoundedCornerShape(8.dp),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Text("আপনার ডিভাইস আইডি (Device ID):", color = Color.White, fontSize = 14.sp)
+            Spacer(Modifier.height(12.dp))
+            
+            // ID value area
+            Surface(
+              color = Color(0xFF0D1117),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF58A6FF)),
+              shape = RoundedCornerShape(4.dp),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Text(
+                text = deviceId,
+                color = Color(0xFF58A6FF),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(12.dp),
+                fontSize = 16.sp
+              )
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            // Copy Button
+            Surface(
+              color = Color(0xFF161B22),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
+              shape = RoundedCornerShape(4.dp),
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                  val clip = ClipData.newPlainText("Device ID", deviceId)
+                  clipboard.setPrimaryClip(clip)
+                  Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                }
+            ) {
+              Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(
+                  imageVector = Icons.Default.ContentCopy,
+                  contentDescription = null,
+                  tint = Color.White,
+                  modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("ডিভাইস আইডি কপি করুন", color = Color.White)
+              }
+            }
+          }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Action Buttons Row 1
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          Button(
+            onClick = {
+              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
+              context.startActivity(intent)
+            },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF238636)), // Green
+            shape = RoundedCornerShape(8.dp)
+          ) {
+            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(dynamicButtons.btn_admin_ws)
+          }
+          
+          Button(
+            onClick = {
+              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("tg://resolve?domain=ornob24"))
+              try { context.startActivity(intent) } catch (e: Exception) {
+                val webIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/ornob24"))
+                context.startActivity(webIntent)
+              }
+            },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F6FEB)), // Blue
+            shape = RoundedCornerShape(8.dp)
+          ) {
+            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(dynamicButtons.btn_admin_tg)
+          }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Action Buttons Row 2
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          Button(
+            onClick = {
+              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/+sjTCu5CFkscxNWU1"))
+              context.startActivity(intent)
+            },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDA3633)), // Red
+            shape = RoundedCornerShape(8.dp)
+          ) {
+            Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(dynamicButtons.btn_tg_channel)
+          }
+
+          Button(
+            onClick = { 
+              // Refresh action
+              activity?.recreate()
+            },
+            modifier = Modifier.weight(1f),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF21262D)), // Dark gray
+            shape = RoundedCornerShape(8.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D))
+          ) {
+            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Text(dynamicButtons.btn_verify, color = Color.White)
+          }
         }
       }
-    )
+    }
+    return
   }
 
   if (isAppAuthorized == null) {
@@ -882,6 +1179,7 @@ fun MainScreen() {
   var showCookieLoginDialog by remember { mutableStateOf(false) }
   var showSetRangeDialog by remember { mutableStateOf(false) }
   var showSettingsDialog by remember { mutableStateOf(false) }
+  var showLiveConsoleDialog by remember { mutableStateOf(false) }
   var isDesktopMode by remember { mutableStateOf(prefs.getBoolean("is_desktop_mode", false)) }
   var isProxyEnabled by remember { mutableStateOf(prefs.getBoolean("is_proxy_enabled", false)) }
   var dnsServer by remember { mutableStateOf("8.8.8.8") }
@@ -961,6 +1259,87 @@ fun MainScreen() {
     webView?.goBack()
   }
 
+  if (showLiveConsoleDialog) {
+    var liveRanges by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isFetchingLiveRanges by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    
+    fun fetchLive() {
+       isFetchingLiveRanges = true
+       errorMessage = ""
+       fetchFacebookRanges(
+         onSuccess = { r -> 
+            liveRanges = r
+            isFetchingLiveRanges = false
+         },
+         onFailure = { e ->
+            errorMessage = e
+            isFetchingLiveRanges = false
+         }
+       )
+    }
+
+    LaunchedEffect(Unit) {
+       fetchLive()
+    }
+
+    AlertDialog(
+      onDismissRequest = { showLiveConsoleDialog = false },
+      title = {
+         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(dynamicButtons.btn_live_console, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            IconButton(onClick = { fetchLive() }) {
+               Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
+            }
+         }
+      },
+      text = {
+         Column(modifier = Modifier.fillMaxWidth()) {
+            if (isFetchingLiveRanges) {
+               CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+            } else if (errorMessage.isNotEmpty()) {
+               Text("Error: $errorMessage", color = MaterialTheme.colorScheme.error)
+            } else if (liveRanges.isEmpty()) {
+               Text("কোনো রেঞ্জ পাওয়া যায়নি।")
+            } else {
+               Text("Facebook Ranges (Click to copy):", fontSize = 14.sp, color = Color.Gray)
+               Spacer(Modifier.height(8.dp))
+               LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
+                  items(liveRanges.size) { index ->
+                     val range = liveRanges[index]
+                     Card(
+                        modifier = Modifier
+                          .fillMaxWidth()
+                          .padding(vertical = 4.dp)
+                          .clickable {
+                             clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(range))
+                             Toast.makeText(context, "Range copied!", Toast.LENGTH_SHORT).show()
+                          },
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                     ) {
+                        Text(
+                           text = range,
+                           modifier = Modifier.padding(12.dp),
+                           fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                           fontWeight = FontWeight.Bold,
+                           fontSize = 14.sp
+                        )
+                     }
+                  }
+               }
+            }
+         }
+      },
+      confirmButton = {
+         TextButton(onClick = { showLiveConsoleDialog = false }) {
+            Text("Close")
+         }
+      }
+    )
+  }
+
   if (showSettingsDialog) {
     AlertDialog(
       onDismissRequest = { showSettingsDialog = false },
@@ -1018,6 +1397,11 @@ fun MainScreen() {
           }
         },
         actions = {
+          TextButton(onClick = { showLiveConsoleDialog = true }) {
+            Icon(Icons.Default.Terminal, contentDescription = "Live Console", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(dynamicButtons.btn_live_console, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+          }
           IconButton(onClick = { showSettingsDialog = true }) {
             Icon(Icons.Default.Settings, contentDescription = "Settings")
           }
@@ -1319,7 +1703,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Bot Creator", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_bot_creator, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = { showSetRangeDialog = true },
@@ -1331,7 +1715,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = if (selectedRange.isEmpty()) "Range" else selectedRange, style = compactTextStyle, maxLines = 1)
+                Text(text = if (selectedRange.isEmpty()) dynamicButtons.btn_range else selectedRange, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = {
@@ -1349,7 +1733,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Copy Cookie", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_copy_cookie, style = compactTextStyle, maxLines = 1)
               }
             }
 
@@ -1376,7 +1760,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Copy UID", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_copy_uid, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = { showHistoryDialog = true },
@@ -1388,7 +1772,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "History", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_history, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = { showCookieLoginDialog = true },
@@ -1400,7 +1784,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Cookie Login", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_cookie_login, style = compactTextStyle, maxLines = 1)
               }
             }
 
@@ -1424,7 +1808,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Gmail Copy", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_gmail_copy, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = { webView?.loadUrl("https://m.facebook.com/login/") },
@@ -1436,7 +1820,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "FB Login", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_fb_login, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = { webView?.loadUrl("https://whoer.net/") },
@@ -1448,7 +1832,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Whoer IP", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_whoer_ip, style = compactTextStyle, maxLines = 1)
               }
             }
 
@@ -1468,7 +1852,7 @@ fun MainScreen() {
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
-                Text(text = "Proxy Config", style = compactTextStyle, maxLines = 1)
+                Text(text = dynamicButtons.btn_proxy_config, style = compactTextStyle, maxLines = 1)
               }
               Button(
                 onClick = {
