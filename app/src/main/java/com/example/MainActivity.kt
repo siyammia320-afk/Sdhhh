@@ -11,6 +11,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.widget.Toast
 import android.net.Uri
 import android.graphics.Bitmap
@@ -215,102 +216,123 @@ fun applyWebViewProxy(context: Context, enabled: Boolean, host: String, port: St
   }
 }
 
+// History storage via JSON in SharedPreferences
+private const val HISTORY_KEY_JSON = "creation_history_json"
+
+private fun saveHistoryList(prefs: SharedPreferences, list: List<HistoryItem>) {
+  try {
+    val jsonArray = JSONArray()
+    for (item in list) {
+      val obj = JSONObject()
+      obj.put("phone", item.phone)
+      obj.put("uid", item.uid)
+      obj.put("cookies", item.cookies)
+      obj.put("password", item.password)
+      obj.put("otp", item.otp)
+      obj.put("timestamp", item.timestamp)
+      jsonArray.put(obj)
+    }
+    prefs.edit().putString(HISTORY_KEY_JSON, jsonArray.toString()).apply()
+  } catch (e: Exception) {
+    e.printStackTrace()
+  }
+}
+
 // Save to SharedPreferences history
 private fun saveAccountToHistory(context: Context, phone: String, uid: String, cookies: String, password: String, otp: String) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val history = prefs.getStringSet("creation_history", emptySet())?.toMutableSet() ?: mutableSetOf()
+  val items = getHistory(context).toMutableList()
   val timestamp = System.currentTimeMillis()
-  val encodedCookies = Base64.encodeToString(cookies.toByteArray(), Base64.NO_WRAP)
-  val entry = "$phone|$uid|$encodedCookies|$password|$otp|$timestamp"
-  history.add(entry)
-  prefs.edit().putStringSet("creation_history", history).apply()
-}
-
-// Reset and delete history after midnight (12:00 AM)
-private fun checkAndResetHistoryAtMidnight(context: Context) {
-  val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val sdf = SimpleDateFormat("yyyyMMdd", Locale.US)
-  val todayStr = sdf.format(Date())
-  val savedDate = prefs.getString("last_history_date", "") ?: ""
-  if (savedDate.isNotEmpty() && savedDate != todayStr) {
-    prefs.edit()
-      .remove("creation_history")
-      .putString("last_history_date", todayStr)
-      .apply()
-  } else if (savedDate.isEmpty()) {
-    prefs.edit().putString("last_history_date", todayStr).apply()
-  }
+  items.add(0, HistoryItem(phone, uid, cookies, password, otp, timestamp))
+  val trimmed = if (items.size > 500) items.take(500) else items
+  saveHistoryList(prefs, trimmed)
 }
 
 // Get SharedPreferences history
 private fun getHistory(context: Context): List<HistoryItem> {
-  checkAndResetHistoryAtMidnight(context)
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val history = prefs.getStringSet("creation_history", emptySet()) ?: emptySet()
-  return history.mapNotNull { entry ->
-    val parts = entry.split("|")
-    if (parts.size >= 5) {
-      val phone = parts[0]
-      val uid = parts[1]
-      val rawCookies = try {
-        String(Base64.decode(parts[2], Base64.NO_WRAP))
-      } catch (e: Exception) {
-        parts[2]
+  val jsonStr = prefs.getString(HISTORY_KEY_JSON, null)
+  if (!jsonStr.isNullOrEmpty()) {
+    try {
+      val jsonArray = JSONArray(jsonStr)
+      val list = mutableListOf<HistoryItem>()
+      for (i in 0 until jsonArray.length()) {
+        val obj = jsonArray.getJSONObject(i)
+        list.add(
+          HistoryItem(
+            phone = obj.optString("phone", ""),
+            uid = obj.optString("uid", ""),
+            cookies = obj.optString("cookies", ""),
+            password = obj.optString("password", ""),
+            otp = obj.optString("otp", ""),
+            timestamp = obj.optLong("timestamp", 0L)
+          )
+        )
       }
-      val password = parts[3]
-      val otp = parts[4]
-      val timestamp = parts.getOrNull(5)?.toLongOrNull() ?: 0L
-      HistoryItem(phone, uid, rawCookies, password, otp, timestamp)
-    } else null
-  }.sortedByDescending { it.timestamp }
+      return list
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+  }
+
+  // Legacy fallback migration from old stringSet if exists
+  val oldSet = prefs.getStringSet("creation_history", null)
+  if (oldSet != null && oldSet.isNotEmpty()) {
+    val list = oldSet.mapNotNull { entry ->
+      val parts = entry.split("|")
+      if (parts.size >= 5) {
+        val phone = parts[0]
+        val uid = parts[1]
+        val rawCookies = try {
+          String(Base64.decode(parts[2], Base64.NO_WRAP))
+        } catch (e: Exception) {
+          parts[2]
+        }
+        val password = parts[3]
+        val otp = parts[4]
+        val timestamp = parts.getOrNull(5)?.toLongOrNull() ?: 0L
+        HistoryItem(phone, uid, rawCookies, password, otp, timestamp)
+      } else null
+    }.sortedByDescending { it.timestamp }
+    
+    saveHistoryList(prefs, list)
+    return list
+  }
+
+  return emptyList()
 }
 
 // Update OTP in history
 private fun updateOtpInHistory(context: Context, phone: String, otp: String) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val history = prefs.getStringSet("creation_history", emptySet())?.toMutableSet() ?: mutableSetOf()
-  val updatedHistory = mutableSetOf<String>()
-  for (entry in history) {
-    val parts = entry.split("|")
-    if (parts.isNotEmpty() && parts[0] == phone) {
-      val uid = parts.getOrNull(1) ?: ""
-      val cookies = parts.getOrNull(2) ?: ""
-      val password = parts.getOrNull(3) ?: ""
-      val timestamp = parts.getOrNull(5) ?: System.currentTimeMillis().toString()
-      updatedHistory.add("$phone|$uid|$cookies|$password|$otp|$timestamp")
-    } else {
-      updatedHistory.add(entry)
+  val cleanTargetPhone = phone.replace("+", "").replace(" ", "").replace("-", "").trim()
+  val items = getHistory(context).toMutableList()
+  var updated = false
+  for (i in 0 until items.size) {
+    val item = items[i]
+    val itemClean = item.phone.replace("+", "").replace(" ", "").replace("-", "").trim()
+    if (itemClean == cleanTargetPhone || (itemClean.length >= 8 && cleanTargetPhone.length >= 8 && itemClean.takeLast(8) == cleanTargetPhone.takeLast(8))) {
+      items[i] = item.copy(otp = otp)
+      updated = true
+      break
     }
   }
-  prefs.edit().putStringSet("creation_history", updatedHistory).apply()
+  if (updated) {
+    saveHistoryList(prefs, items)
+  }
 }
 
 // Clear all history
 private fun clearHistory(context: Context) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  prefs.edit().remove("creation_history").apply()
+  prefs.edit().remove(HISTORY_KEY_JSON).remove("creation_history").apply()
 }
 
 // Delete individual item from history
 private fun deleteItemFromHistory(context: Context, item: HistoryItem) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
-  val history = prefs.getStringSet("creation_history", emptySet())?.toMutableSet() ?: mutableSetOf()
-  val updatedHistory = mutableSetOf<String>()
-  for (entry in history) {
-    val parts = entry.split("|")
-    if (parts.size >= 5) {
-      val phone = parts[0]
-      val timestamp = parts.getOrNull(5)?.toLongOrNull() ?: 0L
-      if (phone == item.phone && timestamp == item.timestamp) {
-        // Skip this entry to delete it
-      } else {
-        updatedHistory.add(entry)
-      }
-    } else {
-      updatedHistory.add(entry)
-    }
-  }
-  prefs.edit().putStringSet("creation_history", updatedHistory).apply()
+  val items = getHistory(context).filterNot { it.phone == item.phone && it.timestamp == item.timestamp }
+  saveHistoryList(prefs, items)
 }
 
 // Fetch Dynamic Button Names
@@ -672,11 +694,17 @@ fun checkOtpForPhone(phone: String, onSuccess: (String, String) -> Unit, onFailu
             val dataObj = json.optJSONObject("data")
             val otps = dataObj?.optJSONArray("otps")
             if (otps != null) {
-              val cleanTargetPhone = phone.replace("+", "").replace(" ", "").trim()
+              val cleanTargetPhone = phone.replace("+", "").replace(" ", "").replace("-", "").trim()
               for (i in 0 until otps.length()) {
                 val otpItem = otps.getJSONObject(i)
-                val otpNumber = otpItem.optString("number", "").replace("+", "").replace(" ", "").trim()
-                if (otpNumber == cleanTargetPhone) {
+                val otpNumber = otpItem.optString("number", "").replace("+", "").replace(" ", "").replace("-", "").trim()
+                val isPhoneMatch = otpNumber.isNotEmpty() && cleanTargetPhone.isNotEmpty() && (
+                  otpNumber == cleanTargetPhone ||
+                  otpNumber.endsWith(cleanTargetPhone) ||
+                  cleanTargetPhone.endsWith(otpNumber) ||
+                  (otpNumber.length >= 8 && cleanTargetPhone.length >= 8 && otpNumber.takeLast(8) == cleanTargetPhone.takeLast(8))
+                )
+                if (isPhoneMatch) {
                   val message = otpItem.optString("message", "")
                   if (message.isNotEmpty()) {
                     val otpCode = extractOtpFromText(message)
@@ -699,28 +727,39 @@ fun checkOtpForPhone(phone: String, onSuccess: (String, String) -> Unit, onFailu
 }
 
 private fun extractOtpFromText(text: String): String {
-  val cleanText = text.replace("-", "").replace(" ", "")
-  val patterns = listOf(
-    Regex("\\b(\\d{8})\\b"),
-    Regex("\\b(\\d{7})\\b"),
-    Regex("\\b(\\d{6})\\b"),
-    Regex("\\b(\\d{5})\\b"),
-    Regex("\\b(\\d{4})\\b"),
-    Regex("\\b(\\d{3})\\b"),
-    Regex("code[:\\s]*(\\d+)", RegexOption.IGNORE_CASE),
-    Regex("OTP[:\\s]*(\\d+)", RegexOption.IGNORE_CASE),
-    Regex("(\\d+)")
-  )
-  for (pattern in patterns) {
-    val match = pattern.find(cleanText)
-    if (match != null) {
-      val groupVal = match.groupValues.getOrNull(1) ?: match.value
-      if (groupVal.length >= 3) {
-        return groupVal
-      }
-    }
+  if (text.isBlank()) return "N/A"
+
+  // 1. Check FB-XXXXX pattern
+  val fbPattern = Regex("""FB[- ]?(\d{4,8})""", RegexOption.IGNORE_CASE)
+  val fbMatch = fbPattern.find(text)
+  if (fbMatch != null) {
+    return fbMatch.groupValues[1]
   }
-  return "N/A"
+
+  // 2. Check "code is XXXXX" or "code: XXXXX" or "কোড XXXXX"
+  val codePattern = Regex("""(?:code|OTP|কোড|verification|confirmation)[:\sisহলো]*(\d{4,8})""", RegexOption.IGNORE_CASE)
+  val codeMatch = codePattern.find(text)
+  if (codeMatch != null) {
+    return codeMatch.groupValues[1]
+  }
+
+  // 3. Check "XXXXX is your [Facebook] code"
+  val prefixPattern = Regex("""^(\d{4,8})\s+(?:is|is your|হলো|Facebook|FB)""", RegexOption.IGNORE_CASE)
+  val prefixMatch = prefixPattern.find(text.trim())
+  if (prefixMatch != null) {
+    return prefixMatch.groupValues[1]
+  }
+
+  // 4. Standalone 4 to 8 digit number surrounded by word boundaries (excluding common 4-digit years like 2024, 2025, 2026, 2027)
+  val standaloneNumbers = Regex("""\b\d{4,8}\b""").findAll(text).map { it.value }.toList()
+  if (standaloneNumbers.isNotEmpty()) {
+    val nonYear = standaloneNumbers.firstOrNull { it != "2024" && it != "2025" && it != "2026" && it != "2027" && it != "2028" }
+    return nonYear ?: standaloneNumbers.first()
+  }
+
+  // 5. Fallback: Any 3-8 digits
+  val fallback = Regex("""\d{3,8}""").find(text)
+  return fallback?.value ?: "N/A"
 }
 
 private class AndroidIdInterface(val isEnabled: () -> Boolean, val context: Context) {
@@ -896,7 +935,8 @@ fun MainScreen() {
     }
   }
 
-  var isAppAuthorized by remember { mutableStateOf<Boolean?>(null) }
+  val prefs = remember { context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE) }
+  var isAppAuthorized by remember { mutableStateOf<Boolean?>(prefs.getBoolean("is_app_authorized_cached", true)) }
 
   val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
   var deviceNotApprovedDialog by remember { mutableStateOf(false) }
@@ -923,11 +963,13 @@ fun MainScreen() {
           blockReason = "BANNED"
           deviceNotApprovedDialog = true
           isAppAuthorized = false
+          prefs.edit().putBoolean("is_app_authorized_cached", false).apply()
         }
         result == "NOT_FOUND" -> {
           blockReason = "NOT_FOUND"
           deviceNotApprovedDialog = true
           isAppAuthorized = false
+          prefs.edit().putBoolean("is_app_authorized_cached", false).apply()
         }
         result.startsWith("EXPIRED_") -> {
           blockReason = "EXPIRED"
@@ -935,10 +977,12 @@ fun MainScreen() {
           expiryDateText = if (timestamp > 0) java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(timestamp)) else "N/A"
           deviceNotApprovedDialog = true
           isAppAuthorized = false
+          prefs.edit().putBoolean("is_app_authorized_cached", false).apply()
         }
         result.startsWith("APPROVED_") -> {
           isAppAuthorized = true
           deviceNotApprovedDialog = false
+          prefs.edit().putBoolean("is_app_authorized_cached", true).apply()
         }
       }
       kotlinx.coroutines.delay(3000)
@@ -1187,6 +1231,7 @@ fun MainScreen() {
   val scope = rememberCoroutineScope()
   val snackbarHostState = remember { SnackbarHostState() }
   
+  var webViewInstance by remember { mutableStateOf<WebView?>(null) }
   var webView: WebView? by remember { mutableStateOf(null) }
   var isLoading by remember { mutableStateOf(false) }
   var progress by remember { mutableStateOf(0) }
@@ -1195,7 +1240,6 @@ fun MainScreen() {
   var canGoForward by remember { mutableStateOf(false) }
 
   // State variables for auto creation dialog
-  val prefs = remember { context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE) }
   var showCreatorDialog by remember { mutableStateOf(false) }
   var showHistoryDialog by remember { mutableStateOf(false) }
   var showCookieLoginDialog by remember { mutableStateOf(false) }
@@ -1228,26 +1272,40 @@ fun MainScreen() {
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
   var selectedCountry by remember { mutableStateOf(prefs.getString("selected_country", "Bangladesh") ?: "Bangladesh") }
 
-  // Loop for active OTP checking - checks every 2 seconds with a 20-minute timeout
-
+  // Loop for active OTP checking: checks active phone and any recent accounts in history whose OTP is not yet fetched
   LaunchedEffect(activePhoneChecking) {
-    if (activePhoneChecking.isNotEmpty()) {
-      val startTime = System.currentTimeMillis()
-      while (activePhoneChecking.isNotEmpty()) {
-        // Timeout check: 20 minutes (20 * 60 * 1000 milliseconds)
-        if (System.currentTimeMillis() - startTime > 20 * 60 * 1000L) {
-          lastCreatedOtp = "number expired"
-          updateOtpInHistory(context, activePhoneChecking, "number expired")
-          activePhoneChecking = "" // Stop polling
-          scope.launch {
-            snackbarHostState.showSnackbar("ওটিপি সময়সীমা পার হয়েছে (20 মিনিট)")
-          }
-          break
-        }
+    while (true) {
+      val now = System.currentTimeMillis()
+      val history = getHistory(context)
+      val pendingItems = history.filter { 
+        it.otp.isEmpty() && (now - it.timestamp < 20 * 60 * 1000L)
+      }
 
+      if (pendingItems.isNotEmpty()) {
+        for (item in pendingItems) {
+          checkOtpForPhone(
+            phone = item.phone,
+            onSuccess = { otp, _ ->
+              clipboardManager.setText(AnnotatedString(otp))
+              updateOtpInHistory(context, item.phone, otp)
+              incrementTodayOtpCount(context)
+              if (item.phone == activePhoneChecking || activePhoneChecking.isEmpty()) {
+                lastCreatedOtp = otp
+                activePhoneChecking = ""
+              }
+              scope.launch {
+                snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে পাওয়া গেছে: $otp (${item.phone})")
+              }
+            },
+            onFailure = {}
+          )
+        }
+      }
+
+      if (activePhoneChecking.isNotEmpty()) {
         checkOtpForPhone(
           phone = activePhoneChecking,
-          onSuccess = { otp, msg ->
+          onSuccess = { otp, _ ->
             clipboardManager.setText(AnnotatedString(otp))
             updateOtpInHistory(context, activePhoneChecking, otp)
             incrementTodayOtpCount(context)
@@ -1255,14 +1313,13 @@ fun MainScreen() {
             scope.launch {
               snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে কপি করা হয়েছে: $otp")
             }
-            activePhoneChecking = "" // Stop polling on success
+            activePhoneChecking = ""
           },
-          onFailure = {
-            // Just wait and continue
-          }
+          onFailure = {}
         )
-        kotlinx.coroutines.delay(2000)
       }
+
+      kotlinx.coroutines.delay(2500)
     }
   }
 
@@ -1959,7 +2016,7 @@ fun MainScreen() {
       ) {
         AndroidView(
           factory = { context ->
-            WebView(context).apply {
+            webViewInstance ?: WebView(context).apply {
               layoutParams = android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -2073,8 +2130,12 @@ fun MainScreen() {
               }
 
               loadUrl(a.b1())
+              webViewInstance = this
               webView = this
             }
+          },
+          update = { view ->
+            webView = view
           },
           modifier = Modifier
             .fillMaxSize()
@@ -2514,7 +2575,7 @@ fun MainScreen() {
 
   // History Dialog
   if (showHistoryDialog) {
-    val historyItems = remember { mutableStateOf(getHistory(context)) }
+    val historyItems = remember(showHistoryDialog) { mutableStateOf(getHistory(context)) }
 
     AlertDialog(
       onDismissRequest = { showHistoryDialog = false },
