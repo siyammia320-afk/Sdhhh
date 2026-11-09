@@ -157,30 +157,13 @@ private val okHttpClient = OkHttpClient.Builder()
 
 private fun getTodayOtpCount(context: Context): Int {
   val prefs = context.getSharedPreferences("otp_counter_prefs", Context.MODE_PRIVATE)
-  val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-  val todayStr = sdf.format(Date())
-  val savedDate = prefs.getString("last_date", "")
-  if (savedDate != todayStr) {
-    prefs.edit().putString("last_date", todayStr).putInt("otp_count", 0).apply()
-    return 0
-  }
   return prefs.getInt("otp_count", 0)
 }
 
 private fun incrementTodayOtpCount(context: Context) {
   val prefs = context.getSharedPreferences("otp_counter_prefs", Context.MODE_PRIVATE)
-  val sdf = SimpleDateFormat("yyyyMMdd", Locale.getDefault())
-  val todayStr = sdf.format(Date())
-  val savedDate = prefs.getString("last_date", "")
-  val currentCount = if (savedDate == todayStr) {
-    prefs.getInt("otp_count", 0)
-  } else {
-    0
-  }
-  prefs.edit()
-    .putString("last_date", todayStr)
-    .putInt("otp_count", currentCount + 1)
-    .apply()
+  val currentCount = prefs.getInt("otp_count", 0)
+  prefs.edit().putInt("otp_count", currentCount + 1).apply()
 }
 
 fun applyWebViewProxy(context: Context, enabled: Boolean, host: String, port: String) {
@@ -244,7 +227,7 @@ private fun saveAccountToHistory(context: Context, phone: String, uid: String, c
   val items = getHistory(context).toMutableList()
   val timestamp = System.currentTimeMillis()
   items.add(0, HistoryItem(phone, uid, cookies, password, otp, timestamp))
-  val trimmed = if (items.size > 500) items.take(500) else items
+  val trimmed = if (items.size > 2000) items.take(2000) else items
   saveHistoryList(prefs, trimmed)
 }
 
@@ -326,6 +309,8 @@ private fun updateOtpInHistory(context: Context, phone: String, otp: String) {
 private fun clearHistory(context: Context) {
   val prefs = context.getSharedPreferences("fb_creator_prefs", Context.MODE_PRIVATE)
   prefs.edit().remove(HISTORY_KEY_JSON).remove("creation_history").apply()
+  val otpPrefs = context.getSharedPreferences("otp_counter_prefs", Context.MODE_PRIVATE)
+  otpPrefs.edit().clear().apply()
 }
 
 // Delete individual item from history
@@ -2588,57 +2573,104 @@ fun MainScreen() {
           Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
           ) {
             Icon(
               imageVector = Icons.Default.History,
               contentDescription = null,
               tint = MaterialTheme.colorScheme.secondary,
-              modifier = Modifier.size(20.dp)
+              modifier = Modifier.size(18.dp)
             )
             Text(
-              text = "ওটিপি ও অ্যাকাউন্ট ইতিহাস",
+              text = "ইতিহাস",
               style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
               maxLines = 1
             )
           }
           
-          Button(
-            onClick = {
-              val textToCopy = historyItems.value
-                .filter { it.otp.trim().isNotEmpty() }
-                .joinToString("\n") { "${it.phone}\t${it.otp}" }
-              if (textToCopy.isNotEmpty()) {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("Copied OTPs", textToCopy)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(context, "আজকের ওটিপি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
-              } else {
-                Toast.makeText(context, "কপি করার মতো কোনো ওটিপি পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
-              }
-            },
-            colors = ButtonDefaults.buttonColors(
-              containerColor = Color(0xFF10B981), // Emerald/Green
-              contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(6.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-            modifier = Modifier.height(30.dp)
+          Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
           ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(4.dp)
+            // Copy button - copies all accounts with OTP in phone\totp format line by line
+            Button(
+              onClick = {
+                val validOtpItems = historyItems.value.filter { 
+                  it.otp.trim().isNotEmpty() && 
+                  it.otp != "number expired" && 
+                  it.otp != "Expired" && 
+                  !it.otp.contains("অপেক্ষারত")
+                }
+                val textToCopy = validOtpItems.joinToString("\n") { "${it.phone}\t${it.otp.trim()}" }
+                if (textToCopy.isNotEmpty()) {
+                  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                  val clip = android.content.ClipData.newPlainText("Copied OTPs", textToCopy)
+                  clipboard.setPrimaryClip(clip)
+                  clipboardManager.setText(AnnotatedString(textToCopy))
+                  Toast.makeText(context, "${validOtpItems.size} টি ওটিপি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                } else {
+                  Toast.makeText(context, "কপি করার মতো কোনো ওটিপি পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
+                }
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF10B981), // Emerald/Green
+                contentColor = Color.White
+              ),
+              shape = RoundedCornerShape(6.dp),
+              contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+              modifier = Modifier.height(30.dp)
             ) {
-              Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = "Copy OTP",
-                modifier = Modifier.size(12.dp)
-              )
-              Text(
-                text = "Copy",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-              )
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.ContentCopy,
+                  contentDescription = "Copy OTP",
+                  modifier = Modifier.size(12.dp)
+                )
+                Text(
+                  text = "Copy",
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold
+                )
+              }
+            }
+
+            // All Clear button
+            Button(
+              onClick = {
+                if (historyItems.value.isNotEmpty()) {
+                  clearHistory(context)
+                  historyItems.value = emptyList()
+                  Toast.makeText(context, "সকল ইতিহাস মুছে ফেলা হয়েছে!", Toast.LENGTH_SHORT).show()
+                } else {
+                  Toast.makeText(context, "ইতিহাস খালি রয়েছে", Toast.LENGTH_SHORT).show()
+                }
+              },
+              colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError
+              ),
+              shape = RoundedCornerShape(6.dp),
+              contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+              modifier = Modifier.height(30.dp)
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
+              ) {
+                Icon(
+                  imageVector = Icons.Default.DeleteSweep,
+                  contentDescription = "Clear All",
+                  modifier = Modifier.size(13.dp)
+                )
+                Text(
+                  text = "Clear All",
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold
+                )
+              }
             }
           }
         }
@@ -2648,8 +2680,13 @@ fun MainScreen() {
           modifier = Modifier.fillMaxWidth(),
           verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-          // Total OTP today display
-          val todayOtpCount = remember { getTodayOtpCount(context) }
+          // Total OTP display - persistently reflects valid OTP accounts in history
+          val totalOtpCount = historyItems.value.count {
+            it.otp.trim().isNotEmpty() &&
+            it.otp != "number expired" &&
+            it.otp != "Expired" &&
+            !it.otp.contains("অপেক্ষারত")
+          }
           Card(
             colors = CardDefaults.cardColors(
               containerColor = MaterialTheme.colorScheme.primaryContainer
@@ -2662,7 +2699,7 @@ fun MainScreen() {
               verticalAlignment = Alignment.CenterVertically
             ) {
               Text(
-                text = "Total otp $todayOtpCount",
+                text = "Total otp $totalOtpCount",
                 style = MaterialTheme.typography.titleMedium.copy(
                   fontWeight = FontWeight.Bold,
                   color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -2720,6 +2757,23 @@ fun MainScreen() {
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.secondary
                       )
+
+                      // Single item delete button
+                      IconButton(
+                        onClick = {
+                          deleteItemFromHistory(context, item)
+                          historyItems.value = getHistory(context)
+                          Toast.makeText(context, "আইটেমটি ডিলিট করা হয়েছে", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(24.dp)
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Delete,
+                          contentDescription = "Delete item",
+                          tint = MaterialTheme.colorScheme.error,
+                          modifier = Modifier.size(16.dp)
+                        )
+                      }
                     }
 
                     Text(
