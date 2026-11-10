@@ -1132,83 +1132,56 @@ fun MainScreen() {
             .fillMaxWidth()
             .padding(20.dp)
         ) {
-          // Top VIP Badge
+          // Lock Icon in glowing Circle (as shown in original screenshot)
           Surface(
-            color = Color(0xFF171E2E),
-            shape = RoundedCornerShape(50.dp),
-            border = BorderStroke(1.dp, Color(0xFFF59E0B)),
-            modifier = Modifier.padding(bottom = 12.dp)
-          ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
-            ) {
-              Box(
-                modifier = Modifier
-                  .size(8.dp)
-                  .background(Color(0xFF10B981), shape = androidx.compose.foundation.shape.CircleShape)
-              )
-              Text(
-                text = "👑🅾🅁🄽🄾🄱- ⟨🆉🅾🅽🅴⟩💭",
-                color = Color(0xFFFCD34D),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
-              )
-            }
-          }
-
-          // Center Icon Badge
-          Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = androidx.compose.foundation.shape.CircleShape,
             color = Color(0xFF0F1A30),
-            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
-            modifier = Modifier.size(60.dp)
+            border = BorderStroke(2.dp, Color(0xFF00E5FF)),
+            modifier = Modifier.size(68.dp)
           ) {
             Box(contentAlignment = Alignment.Center) {
               Icon(
-                imageVector = Icons.Default.Security,
+                imageVector = Icons.Default.Lock,
                 contentDescription = null,
                 tint = Color(0xFF00E5FF),
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(34.dp)
               )
             }
           }
           
-          Spacer(Modifier.height(12.dp))
+          Spacer(Modifier.height(14.dp))
           
           Text(
             text = mainTitle,
             color = Color.White,
-            fontSize = 19.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
-          )
-
-          Text(
-            text = "ব্যবহারকারী: $userName",
-            color = Color(0xFF94A3B8),
-            fontSize = 12.sp,
-            modifier = Modifier.padding(top = 4.dp)
           )
           
           Spacer(Modifier.height(14.dp))
           
-          // Warning/Status Box
+          // Red-bordered Status Box
           Surface(
-            color = Color(0xFF1A1325),
-            border = BorderStroke(1.dp, Color(0xFFA855F7).copy(alpha = 0.7f)),
+            color = Color(0xFF180A0E),
+            border = BorderStroke(1.dp, Color(0xFFEF4444)),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(
-              modifier = Modifier.padding(12.dp),
+              modifier = Modifier.padding(14.dp),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
+                text = "ব্যবহারকারী: $userName",
+                color = Color(0xFFFBBF24),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+              )
+              Spacer(Modifier.height(6.dp))
+              Text(
                 text = descText,
-                color = Color(0xFFF472B6),
+                color = Color(0xFFF87171),
                 textAlign = TextAlign.Center,
                 fontSize = 13.sp
               )
@@ -1228,31 +1201,35 @@ fun MainScreen() {
           // Device ID Box
           Surface(
             color = Color(0xFF070B14),
-            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
+            border = BorderStroke(1.dp, Color(0xFF1E293B)),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(
-              modifier = Modifier.padding(12.dp),
+              modifier = Modifier.padding(14.dp),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
-              Text("আপনার ডিভাইস আইডি (Device ID):", color = Color(0xFF94A3B8), fontSize = 12.sp)
-              Spacer(Modifier.height(8.dp))
+              Text("আপনার ডিভাইস আইডি (Device ID):", color = Color(0xFFE2E8F0), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+              Spacer(Modifier.height(10.dp))
               
-              Text(
-                text = deviceId,
-                color = Color(0xFF00E5FF),
-                textAlign = TextAlign.Center,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                modifier = Modifier
-                  .background(Color(0xFF0B1322), RoundedCornerShape(6.dp))
-                  .fillMaxWidth()
-                  .padding(8.dp)
-              )
+              Surface(
+                color = Color(0xFF0B1322),
+                border = BorderStroke(1.dp, Color(0xFF2563EB)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Text(
+                  text = deviceId,
+                  color = Color(0xFF00E5FF),
+                  textAlign = TextAlign.Center,
+                  fontFamily = FontFamily.Monospace,
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 15.sp,
+                  modifier = Modifier.padding(10.dp)
+                )
+              }
               
-              Spacer(Modifier.height(8.dp))
+              Spacer(Modifier.height(10.dp))
               
               Button(
                 onClick = {
@@ -1262,12 +1239,12 @@ fun MainScreen() {
                   Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF0E1A30),
-                  contentColor = Color(0xFF00E5FF)
+                  containerColor = Color(0xFF0F172A),
+                  contentColor = Color.White
                 ),
-                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier.fillMaxWidth().height(36.dp)
+                border = BorderStroke(1.dp, Color(0xFF334155)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth().height(40.dp)
               ) {
                 Row(
                   horizontalArrangement = Arrangement.Center,
@@ -1277,10 +1254,10 @@ fun MainScreen() {
                     imageVector = Icons.Default.ContentCopy,
                     contentDescription = null,
                     tint = Color(0xFF00E5FF),
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(16.dp)
                   )
-                  Spacer(Modifier.width(6.dp))
-                  Text("ডিভাইস আইডি কপি করুন", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                  Spacer(Modifier.width(8.dp))
+                  Text("ডিভাইস আইডি কপি করুন", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
               }
             }
@@ -1288,29 +1265,69 @@ fun MainScreen() {
 
           Spacer(Modifier.height(16.dp))
 
-          // Action Buttons: Gradient Main CTA & Secondary Cyber CTAs
-          Button(
-            onClick = {
-              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/+sjTCu5CFkscxNWU1"))
-              context.startActivity(intent)
-            },
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(44.dp)
-              .background(
-                Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFF8B5CF6), Color(0xFFEC4899))),
-                shape = RoundedCornerShape(10.dp)
-              ),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
-            shape = RoundedCornerShape(10.dp)
+          // 2x2 Action Buttons (Row 1: Admin WS + Admin TG; Row 2: TG Channel + Verify)
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.Center
+            Button(
+              onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
+                context.startActivity(intent)
+              },
+              modifier = Modifier.weight(1f).height(46.dp),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF16A34A),
+                contentColor = Color.White
+              ),
+              border = BorderStroke(1.dp, Color(0xFF22C55E)),
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
-              Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-              Spacer(Modifier.width(8.dp))
-              Text(dynamicButtons.btn_tg_channel, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                  text = dynamicButtons.btn_admin_ws,
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold,
+                  textAlign = TextAlign.Center,
+                  maxLines = 2
+                )
+              }
+            }
+
+            Button(
+              onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/Ornob_vai"))
+                context.startActivity(intent)
+              },
+              modifier = Modifier.weight(1f).height(46.dp),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2563EB),
+                contentColor = Color.White
+              ),
+              border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+            ) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                  text = dynamicButtons.btn_admin_tg,
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold,
+                  textAlign = TextAlign.Center,
+                  maxLines = 2
+                )
+              }
             }
           }
 
@@ -1322,29 +1339,59 @@ fun MainScreen() {
           ) {
             Button(
               onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/+sjTCu5CFkscxNWU1"))
                 context.startActivity(intent)
               },
-              modifier = Modifier.weight(1f).height(40.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D251D), contentColor = Color(0xFF10B981)),
-              border = BorderStroke(1.dp, Color(0xFF10B981)),
-              shape = RoundedCornerShape(8.dp)
+              modifier = Modifier.weight(1f).height(46.dp),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFDC2626),
+                contentColor = Color.White
+              ),
+              border = BorderStroke(1.dp, Color(0xFFEF4444)),
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
-              Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF10B981))
-              Spacer(Modifier.width(6.dp))
-              Text(dynamicButtons.btn_admin_ws, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                  text = dynamicButtons.btn_tg_channel,
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold,
+                  textAlign = TextAlign.Center,
+                  maxLines = 2
+                )
+              }
             }
 
             Button(
               onClick = { activity?.recreate() },
-              modifier = Modifier.weight(1f).height(40.dp),
-              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF151D2A), contentColor = Color.White),
-              border = BorderStroke(1.dp, Color(0xFF334155)),
-              shape = RoundedCornerShape(8.dp)
+              modifier = Modifier.weight(1f).height(46.dp),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1E293B),
+                contentColor = Color.White
+              ),
+              border = BorderStroke(1.dp, Color(0xFF64748B)),
+              shape = RoundedCornerShape(10.dp),
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
-              Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF00E5FF))
-              Spacer(Modifier.width(6.dp))
-              Text(dynamicButtons.btn_verify, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+              ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF00E5FF))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                  text = dynamicButtons.btn_verify,
+                  fontSize = 11.sp,
+                  fontWeight = FontWeight.Bold,
+                  textAlign = TextAlign.Center,
+                  maxLines = 2
+                )
+              }
             }
           }
         }
@@ -2797,7 +2844,9 @@ fun MainScreen() {
           Button(
             onClick = {
                 if (selectedRange.isEmpty()) {
-                  currentCreationStatus = "please enter range"
+                  currentCreationStatus = "দয়া করে রেঞ্জ নির্বাচন করুন"
+                  Toast.makeText(context, "দয়া করে রেঞ্জ নির্বাচন করুন", Toast.LENGTH_SHORT).show()
+                  showLiveConsoleDialog = true
                   return@Button
                 }
                 isCreatingAccount = true
@@ -2899,39 +2948,45 @@ fun MainScreen() {
                   }
                 )
               },
-              enabled = !isCreatingAccount && selectedRange.isNotEmpty(),
+              enabled = !isCreatingAccount,
               modifier = Modifier
-                .weight(1f)
-                .height(46.dp)
+                .fillMaxWidth()
+                .height(48.dp)
                 .background(
                   Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFF8B5CF6), Color(0xFFEC4899))),
                   shape = RoundedCornerShape(12.dp)
                 ),
-              colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+              colors = ButtonDefaults.buttonColors(
+                containerColor = Color.Transparent,
+                contentColor = Color.White
+              ),
               shape = RoundedCornerShape(12.dp)
             ) {
               if (isCreatingAccount) {
                 CircularProgressIndicator(
                   color = Color.White,
-                  modifier = Modifier.size(18.dp),
+                  modifier = Modifier.size(20.dp),
                   strokeWidth = 2.dp
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
               }
               Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
               ) {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                 Spacer(Modifier.width(8.dp))
                 Text(
                   text = if (isCreatingAccount) "অ্যাকাউন্ট তৈরি হচ্ছে..." else "অ্যাকাউন্ট তৈরি করুন",
                   fontWeight = FontWeight.Bold,
-                  fontSize = 13.sp
+                  fontSize = 15.sp,
+                  color = Color.White
                 )
               }
             }
+
+            Spacer(Modifier.height(10.dp))
 
           // Creation Status / Logs
           if (currentCreationStatus.isNotEmpty()) {
