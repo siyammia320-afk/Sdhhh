@@ -33,6 +33,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.*
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -365,66 +368,217 @@ fun fetchDynamicButtonNames(onSuccess: (ButtonNames) -> Unit) {
 }
 
 // Country lookup for live ranges
+// Comprehensive Country lookup for live ranges
 fun getCountryForRange(range: String): String {
   val clean = range.replace("XXX", "").replace("X", "").replace("+", "").replace(" ", "").trim()
   if (clean.isEmpty()) return ""
+
+  // 4-digit prefixes (Caribbean & NANP special codes)
+  if (clean.length >= 4) {
+    val four = clean.substring(0, 4)
+    val c = when (four) {
+      "1242" -> "Bahamas 👉BS"
+      "1246" -> "Barbados 👉BB"
+      "1264" -> "Anguilla 👉AI"
+      "1268" -> "Antigua 👉AG"
+      "1284" -> "British Virgin Is 👉VG"
+      "1340" -> "US Virgin Is 👉VI"
+      "1345" -> "Cayman Islands 👉KY"
+      "1441" -> "Bermuda 👉BM"
+      "1473" -> "Grenada 👉GD"
+      "1649" -> "Turks & Caicos 👉TC"
+      "1664" -> "Montserrat 👉MS"
+      "1670" -> "Northern Mariana Is 👉MP"
+      "1671" -> "Guam 👉GU"
+      "1684" -> "American Samoa 👉AS"
+      "1721" -> "Sint Maarten 👉SX"
+      "1758" -> "Saint Lucia 👉LC"
+      "1767" -> "Dominica 👉DM"
+      "1784" -> "St Vincent 👉VC"
+      "1787", "1939" -> "Puerto Rico 👉PR"
+      "1809", "1829", "1849" -> "Dominican Rep 👉DO"
+      "1868" -> "Trinidad & Tobago 👉TT"
+      "1869" -> "Saint Kitts & Nevis 👉KN"
+      "1876" -> "Jamaica 👉JM"
+      else -> null
+    }
+    if (c != null) return c
+  }
 
   // 3-digit prefixes
   if (clean.length >= 3) {
     val three = clean.substring(0, 3)
     val c = when (three) {
-      "266" -> "Lesotho 👉LS"
-      "237" -> "Cameroon 👉CM"
-      "234" -> "Nigeria 👉NG"
-      "254" -> "Kenya 👉KE"
-      "255" -> "Tanzania 👉TZ"
-      "256" -> "Uganda 👉UG"
-      "233" -> "Ghana 👉GH"
-      "225" -> "Ivory Coast 👉CI"
-      "229" -> "Benin 👉BJ"
-      "228" -> "Togo 👉TG"
-      "221" -> "Senegal 👉SN"
-      "222" -> "Mauritania 👉MR"
-      "223" -> "Mali 👉ML"
-      "224" -> "Guinea 👉GN"
-      "231" -> "Liberia 👉LR"
-      "232" -> "Sierra Leone 👉SL"
-      "242" -> "Congo 👉CG"
-      "243" -> "DR Congo 👉CD"
-      "244" -> "Angola 👉AO"
-      "250" -> "Rwanda 👉RW"
-      "251" -> "Ethiopia 👉ET"
-      "252" -> "Somalia 👉SO"
-      "257" -> "Burundi 👉BI"
-      "258" -> "Mozambique 👉MZ"
-      "260" -> "Zambia 👉ZM"
-      "263" -> "Zimbabwe 👉ZW"
-      "264" -> "Namibia 👉NA"
-      "265" -> "Malawi 👉MW"
-      "267" -> "Botswana 👉BW"
-      "268" -> "Eswatini 👉SZ"
-      "269" -> "Comoros 👉KM"
-      "880" -> "Bangladesh 👉BD"
-      "977" -> "Nepal 👉NP"
-      "855" -> "Cambodia 👉KH"
-      "856" -> "Laos 👉LA"
-      "966" -> "Saudi Arabia 👉SA"
-      "971" -> "UAE 👉AE"
-      "974" -> "Qatar 👉QA"
-      "965" -> "Kuwait 👉KW"
-      "968" -> "Oman 👉OM"
-      "962" -> "Jordan 👉JO"
-      "961" -> "Lebanon 👉LB"
-      "964" -> "Iraq 👉IQ"
+      // Africa
+      "211" -> "South Sudan 👉SS"
       "212" -> "Morocco 👉MA"
       "213" -> "Algeria 👉DZ"
       "216" -> "Tunisia 👉TN"
       "218" -> "Libya 👉LY"
+      "220" -> "Gambia 👉GM"
+      "221" -> "Senegal 👉SN"
+      "222" -> "Mauritania 👉MR"
+      "223" -> "Mali 👉ML"
+      "224" -> "Guinea 👉GN"
+      "225" -> "Ivory Coast 👉CI"
+      "226" -> "Burkina Faso 👉BF"
+      "227" -> "Niger 👉NE"
+      "228" -> "Togo 👉TG"
+      "229" -> "Benin 👉BJ"
+      "230" -> "Mauritius 👉MU"
+      "231" -> "Liberia 👉LR"
+      "232" -> "Sierra Leone 👉SL"
+      "233" -> "Ghana 👉GH"
+      "234" -> "Nigeria 👉NG"
+      "235" -> "Chad 👉TD"
+      "236" -> "Central African Rep 👉CF"
+      "237" -> "Cameroon 👉CM"
+      "238" -> "Cape Verde 👉CV"
+      "239" -> "Sao Tome 👉ST"
+      "240" -> "Equatorial Guinea 👉GQ"
+      "241" -> "Gabon 👉GA"
+      "242" -> "Congo 👉CG"
+      "243" -> "DR Congo 👉CD"
+      "244" -> "Angola 👉AO"
+      "245" -> "Guinea-Bissau 👉GW"
+      "246" -> "Diego Garcia 👉IO"
+      "247" -> "Ascension Island 👉AC"
+      "248" -> "Seychelles 👉SC"
       "249" -> "Sudan 👉SD"
+      "250" -> "Rwanda 👉RW"
+      "251" -> "Ethiopia 👉ET"
+      "252" -> "Somalia 👉SO"
+      "253" -> "Djibouti 👉DJ"
+      "254" -> "Kenya 👉KE"
+      "255" -> "Tanzania 👉TZ"
+      "256" -> "Uganda 👉UG"
+      "257" -> "Burundi 👉BI"
+      "258" -> "Mozambique 👉MZ"
+      "260" -> "Zambia 👉ZM"
+      "261" -> "Madagascar 👉MG"
+      "262" -> "Reunion 👉RE"
+      "263" -> "Zimbabwe 👉ZW"
+      "264" -> "Namibia 👉NA"
+      "265" -> "Malawi 👉MW"
+      "266" -> "Lesotho 👉LS"
+      "267" -> "Botswana 👉BW"
+      "268" -> "Eswatini 👉SZ"
+      "269" -> "Comoros 👉KM"
+      "290" -> "Saint Helena 👉SH"
+      "291" -> "Eritrea 👉ER"
+      "297" -> "Aruba 👉AW"
+      "298" -> "Faroe Islands 👉FO"
+      "299" -> "Greenland 👉GL"
+
+      // Europe
+      "350" -> "Gibraltar 👉GI"
       "351" -> "Portugal 👉PT"
-      "380" -> "Ukraine 👉UA"
-      "358" -> "Finland 👉FI"
+      "352" -> "Luxembourg 👉LU"
       "353" -> "Ireland 👉IE"
+      "354" -> "Iceland 👉IS"
+      "355" -> "Albania 👉AL"
+      "356" -> "Malta 👉MT"
+      "357" -> "Cyprus 👉CY"
+      "358" -> "Finland 👉FI"
+      "359" -> "Bulgaria 👉BG"
+      "370" -> "Lithuania 👉LT"
+      "371" -> "Latvia 👉LV"
+      "372" -> "Estonia 👉EE"
+      "373" -> "Moldova 👉MD"
+      "374" -> "Armenia 👉AM"
+      "375" -> "Belarus 👉BY"
+      "376" -> "Andorra 👉AD"
+      "377" -> "Monaco 👉MC"
+      "378" -> "San Marino 👉SM"
+      "379" -> "Vatican City 👉VA"
+      "380" -> "Ukraine 👉UA"
+      "381" -> "Serbia 👉RS"
+      "382" -> "Montenegro 👉ME"
+      "383" -> "Kosovo 👉XK"
+      "385" -> "Croatia 👉HR"
+      "386" -> "Slovenia 👉SI"
+      "387" -> "Bosnia 👉BA"
+      "389" -> "North Macedonia 👉MK"
+      "420" -> "Czech Republic 👉CZ"
+      "421" -> "Slovakia 👉SK"
+      "423" -> "Liechtenstein 👉LI"
+
+      // Americas
+      "500" -> "Falkland Islands 👉FK"
+      "501" -> "Belize 👉BZ"
+      "502" -> "Guatemala 👉GT"
+      "503" -> "El Salvador 👉SV"
+      "504" -> "Honduras 👉HN"
+      "505" -> "Nicaragua 👉NI"
+      "506" -> "Costa Rica 👉CR"
+      "507" -> "Panama 👉PA"
+      "508" -> "St Pierre & Miquelon 👉PM"
+      "509" -> "Haiti 👉HT"
+      "590" -> "Guadeloupe 👉GP"
+      "591" -> "Bolivia 👉BO"
+      "592" -> "Guyana 👉GY"
+      "593" -> "Ecuador 👉EC"
+      "594" -> "French Guiana 👉GF"
+      "595" -> "Paraguay 👉PY"
+      "596" -> "Martinique 👉MQ"
+      "597" -> "Suriname 👉SR"
+      "598" -> "Uruguay 👉UY"
+      "599" -> "Curacao 👉CW"
+
+      // Asia & Middle East
+      "850" -> "North Korea 👉KP"
+      "852" -> "Hong Kong 👉HK"
+      "853" -> "Macau 👉MO"
+      "855" -> "Cambodia 👉KH"
+      "856" -> "Laos 👉LA"
+      "880" -> "Bangladesh 👉BD"
+      "886" -> "Taiwan 👉TW"
+      "960" -> "Maldives 👉MV"
+      "961" -> "Lebanon 👉LB"
+      "962" -> "Jordan 👉JO"
+      "963" -> "Syria 👉SY"
+      "964" -> "Iraq 👉IQ"
+      "965" -> "Kuwait 👉KW"
+      "966" -> "Saudi Arabia 👉SA"
+      "967" -> "Yemen 👉YE"
+      "968" -> "Oman 👉OM"
+      "970" -> "Palestine 👉PS"
+      "971" -> "UAE 👉AE"
+      "972" -> "Israel 👉IL"
+      "973" -> "Bahrain 👉BH"
+      "974" -> "Qatar 👉QA"
+      "975" -> "Bhutan 👉BT"
+      "976" -> "Mongolia 👉MN"
+      "977" -> "Nepal 👉NP"
+      "992" -> "Tajikistan 👉TJ"
+      "993" -> "Turkmenistan 👉TM"
+      "994" -> "Azerbaijan 👉AZ"
+      "995" -> "Georgia 👉GE"
+      "996" -> "Kyrgyzstan 👉KG"
+      "998" -> "Uzbekistan 👉UZ"
+
+      // Oceania
+      "670" -> "East Timor 👉TL"
+      "672" -> "Norfolk Island 👉NF"
+      "673" -> "Brunei 👉BN"
+      "674" -> "Nauru 👉NR"
+      "675" -> "Papua New Guinea 👉PG"
+      "676" -> "Tonga 👉TO"
+      "677" -> "Solomon Islands 👉SB"
+      "678" -> "Vanuatu 👉VU"
+      "679" -> "Fiji 👉FJ"
+      "680" -> "Palau 👉PW"
+      "681" -> "Wallis & Futuna 👉WF"
+      "682" -> "Cook Islands 👉CK"
+      "683" -> "Niue 👉NU"
+      "685" -> "Samoa 👉WS"
+      "686" -> "Kiribati 👉KI"
+      "687" -> "New Caledonia 👉NC"
+      "688" -> "Tuvalu 👉TV"
+      "689" -> "French Polynesia 👉PF"
+      "690" -> "Tokelau 👉TK"
+      "691" -> "Micronesia 👉FM"
+      "692" -> "Marshall Islands 👉MH"
       else -> null
     }
     if (c != null) return c
@@ -434,44 +588,50 @@ fun getCountryForRange(range: String): String {
   if (clean.length >= 2) {
     val two = clean.substring(0, 2)
     val c = when (two) {
-      "27" -> "South Africa 👉ZA"
-      "91" -> "India 👉IN"
-      "92" -> "Pakistan 👉PK"
-      "94" -> "Sri Lanka 👉LK"
-      "93" -> "Afghanistan 👉AF"
-      "63" -> "Philippines 👉PH"
-      "62" -> "Indonesia 👉ID"
-      "60" -> "Malaysia 👉MY"
-      "66" -> "Thailand 👉TH"
-      "84" -> "Vietnam 👉VN"
-      "95" -> "Myanmar 👉MM"
-      "90" -> "Turkey 👉TR"
       "20" -> "Egypt 👉EG"
-      "98" -> "Iran 👉IR"
-      "55" -> "Brazil 👉BR"
-      "57" -> "Colombia 👉CO"
-      "52" -> "Mexico 👉MX"
-      "54" -> "Argentina 👉AR"
-      "51" -> "Peru 👉PE"
-      "56" -> "Chile 👉CL"
-      "58" -> "Venezuela 👉VE"
-      "44" -> "United Kingdom 👉GB"
-      "49" -> "Germany 👉DE"
-      "33" -> "France 👉FR"
-      "39" -> "Italy 👉IT"
-      "34" -> "Spain 👉ES"
+      "27" -> "South Africa 👉ZA"
+      "30" -> "Greece 👉GR"
       "31" -> "Netherlands 👉NL"
       "32" -> "Belgium 👉BE"
-      "48" -> "Poland 👉PL"
+      "33" -> "France 👉FR"
+      "34" -> "Spain 👉ES"
+      "36" -> "Hungary 👉HU"
+      "39" -> "Italy 👉IT"
       "40" -> "Romania 👉RO"
-      "30" -> "Greece 👉GR"
+      "41" -> "Switzerland 👉CH"
+      "43" -> "Austria 👉AT"
+      "44" -> "United Kingdom 👉GB"
+      "45" -> "Denmark 👉DK"
       "46" -> "Sweden 👉SE"
       "47" -> "Norway 👉NO"
-      "45" -> "Denmark 👉DK"
-      "43" -> "Austria 👉AT"
-      "41" -> "Switzerland 👉CH"
+      "48" -> "Poland 👉PL"
+      "49" -> "Germany 👉DE"
+      "51" -> "Peru 👉PE"
+      "52" -> "Mexico 👉MX"
+      "53" -> "Cuba 👉CU"
+      "54" -> "Argentina 👉AR"
+      "55" -> "Brazil 👉BR"
+      "56" -> "Chile 👉CL"
+      "57" -> "Colombia 👉CO"
+      "58" -> "Venezuela 👉VE"
+      "60" -> "Malaysia 👉MY"
       "61" -> "Australia 👉AU"
+      "62" -> "Indonesia 👉ID"
+      "63" -> "Philippines 👉PH"
       "64" -> "New Zealand 👉NZ"
+      "65" -> "Singapore 👉SG"
+      "66" -> "Thailand 👉TH"
+      "81" -> "Japan 👉JP"
+      "82" -> "South Korea 👉KR"
+      "84" -> "Vietnam 👉VN"
+      "86" -> "China 👉CN"
+      "90" -> "Turkey 👉TR"
+      "91" -> "India 👉IN"
+      "92" -> "Pakistan 👉PK"
+      "93" -> "Afghanistan 👉AF"
+      "94" -> "Sri Lanka 👉LK"
+      "95" -> "Myanmar 👉MM"
+      "98" -> "Iran 👉IR"
       else -> null
     }
     if (c != null) return c
@@ -1111,6 +1271,90 @@ fun MainScreen() {
       else -> "আপনার ডিভাইসটি এখনো অনুমোদিত নয়। অ্যাডমিনের সাথে যোগাযোগ করুন।"
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "loginCyberGlow")
+    val pulseScale by infiniteTransition.animateFloat(
+      initialValue = 0.96f,
+      targetValue = 1.04f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(1300, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "pulseScale"
+    )
+    val glowAlpha by infiniteTransition.animateFloat(
+      initialValue = 0.45f,
+      targetValue = 1.0f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(1500, easing = LinearEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "glowAlpha"
+    )
+
+    // Button 1 Specific: WhatsApp Chat Icon Wiggle/Rock Animation (-8 to +8 degrees)
+    val wsWiggle by infiniteTransition.animateFloat(
+      initialValue = -8f,
+      targetValue = 8f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(650, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "wsWiggle"
+    )
+
+    // Button 2 Specific: Telegram Admin Paper Plane Flight Gliding Tilt & Float
+    val tgPlaneTilt by infiniteTransition.animateFloat(
+      initialValue = -10f,
+      targetValue = 10f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(850, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "tgPlaneTilt"
+    )
+    val tgPlaneFly by infiniteTransition.animateFloat(
+      initialValue = -2.5f,
+      targetValue = 2.5f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(850, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "tgPlaneFly"
+    )
+
+    // Button 3 Specific: Telegram Channel Megaphone Broadcast Pulse / Soundwave Flash
+    val channelScale by infiniteTransition.animateFloat(
+      initialValue = 0.88f,
+      targetValue = 1.20f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(550, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "channelScale"
+    )
+
+    // Button 4 Specific: Verify Continuous 360-degree Smooth Radar Scanner Rotation
+    val verifyRotation by infiniteTransition.animateFloat(
+      initialValue = 0f,
+      targetValue = 360f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(2000, easing = LinearEasing),
+        repeatMode = RepeatMode.Restart
+      ),
+      label = "verifyRotation"
+    )
+
+    // Device ID Copy Button Specific: Breathing Scale Animation
+    val copyIconScale by infiniteTransition.animateFloat(
+      initialValue = 0.85f,
+      targetValue = 1.15f,
+      animationSpec = infiniteRepeatable(
+        animation = tween(750, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+      ),
+      label = "copyIconScale"
+    )
+
     Box(
       modifier = Modifier
         .fillMaxSize()
@@ -1121,7 +1365,17 @@ fun MainScreen() {
       Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
-        border = BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFFA855F7), Color(0xFFEC4899)))),
+        border = BorderStroke(
+          1.5.dp,
+          Brush.horizontalGradient(
+            listOf(
+              Color(0xFF00E5FF),
+              Color(0xFFA855F7),
+              Color(0xFFEC4899),
+              Color(0xFF00E5FF)
+            )
+          )
+        ),
         modifier = Modifier
           .fillMaxWidth()
           .padding(4.dp)
@@ -1130,26 +1384,78 @@ fun MainScreen() {
           horizontalAlignment = Alignment.CenterHorizontally,
           modifier = Modifier
             .fillMaxWidth()
-            .padding(20.dp)
+            .padding(18.dp)
         ) {
-          // Lock Icon in glowing Circle (as shown in original screenshot)
+          // Top Animated Header Badge: 👑🅾🅁🄽🄾🄱- ⟨🆉🅾🅽🅴⟩💭
           Surface(
-            shape = androidx.compose.foundation.shape.CircleShape,
-            color = Color(0xFF0F1A30),
-            border = BorderStroke(2.dp, Color(0xFF00E5FF)),
-            modifier = Modifier.size(68.dp)
+            shape = RoundedCornerShape(50.dp),
+            color = Color(0xFF0F172A),
+            border = BorderStroke(
+              1.5.dp,
+              Brush.horizontalGradient(
+                listOf(
+                  Color(0xFFF59E0B),
+                  Color(0xFF00E5FF),
+                  Color(0xFFA855F7),
+                  Color(0xFFF59E0B)
+                )
+              )
+            ),
+            modifier = Modifier
+              .scale(pulseScale)
+              .padding(bottom = 12.dp)
           ) {
-            Box(contentAlignment = Alignment.Center) {
-              Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = Color(0xFF00E5FF),
-                modifier = Modifier.size(34.dp)
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.Center,
+              modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(8.dp)
+                  .background(Color(0xFF10B981), shape = androidx.compose.foundation.shape.CircleShape)
+              )
+              Spacer(Modifier.width(8.dp))
+              Text(
+                text = "👑🅾🅁🄽🄾🄱- ⟨🆉🅾🅽🅴⟩💭",
+                color = Color(0xFFFCD34D),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 0.5.sp
               )
             }
           }
+
+          // Lock Icon in animated glowing Circle
+          Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+              .size(74.dp)
+              .scale(pulseScale)
+          ) {
+            Surface(
+              shape = androidx.compose.foundation.shape.CircleShape,
+              color = Color(0xFF00E5FF).copy(alpha = 0.12f * glowAlpha),
+              modifier = Modifier.size(74.dp)
+            ) {}
+            Surface(
+              shape = androidx.compose.foundation.shape.CircleShape,
+              color = Color(0xFF07142A),
+              border = BorderStroke(2.dp, Color(0xFF00E5FF)),
+              modifier = Modifier.size(64.dp)
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Icon(
+                  imageVector = Icons.Default.Lock,
+                  contentDescription = null,
+                  tint = Color(0xFF00E5FF),
+                  modifier = Modifier.size(32.dp)
+                )
+              }
+            }
+          }
           
-          Spacer(Modifier.height(14.dp))
+          Spacer(Modifier.height(12.dp))
           
           Text(
             text = mainTitle,
@@ -1159,17 +1465,17 @@ fun MainScreen() {
             textAlign = TextAlign.Center
           )
           
-          Spacer(Modifier.height(14.dp))
+          Spacer(Modifier.height(12.dp))
           
-          // Red-bordered Status Box
+          // Red-bordered Status Box with animated glow
           Surface(
             color = Color(0xFF180A0E),
-            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+            border = BorderStroke(1.2.dp, Color(0xFFEF4444).copy(alpha = 0.6f + 0.4f * glowAlpha)),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(
-              modifier = Modifier.padding(14.dp),
+              modifier = Modifier.padding(12.dp),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
@@ -1178,7 +1484,7 @@ fun MainScreen() {
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
               )
-              Spacer(Modifier.height(6.dp))
+              Spacer(Modifier.height(5.dp))
               Text(
                 text = descText,
                 color = Color(0xFFF87171),
@@ -1196,7 +1502,7 @@ fun MainScreen() {
             }
           }
 
-          Spacer(Modifier.height(14.dp))
+          Spacer(Modifier.height(12.dp))
 
           // Device ID Box
           Surface(
@@ -1206,15 +1512,15 @@ fun MainScreen() {
             modifier = Modifier.fillMaxWidth()
           ) {
             Column(
-              modifier = Modifier.padding(14.dp),
+              modifier = Modifier.padding(12.dp),
               horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text("আপনার ডিভাইস আইডি (Device ID):", color = Color(0xFFE2E8F0), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-              Spacer(Modifier.height(10.dp))
+              Spacer(Modifier.height(8.dp))
               
               Surface(
                 color = Color(0xFF0B1322),
-                border = BorderStroke(1.dp, Color(0xFF2563EB)),
+                border = BorderStroke(1.2.dp, Color(0xFF2563EB).copy(alpha = 0.6f + 0.4f * glowAlpha)),
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
               ) {
@@ -1229,7 +1535,7 @@ fun MainScreen() {
                 )
               }
               
-              Spacer(Modifier.height(10.dp))
+              Spacer(Modifier.height(8.dp))
               
               Button(
                 onClick = {
@@ -1242,9 +1548,9 @@ fun MainScreen() {
                   containerColor = Color(0xFF0F172A),
                   contentColor = Color.White
                 ),
-                border = BorderStroke(1.dp, Color(0xFF334155)),
+                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f + 0.5f * glowAlpha)),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.fillMaxWidth().height(40.dp)
+                modifier = Modifier.fillMaxWidth().height(38.dp)
               ) {
                 Row(
                   horizontalArrangement = Arrangement.Center,
@@ -1254,18 +1560,19 @@ fun MainScreen() {
                     imageVector = Icons.Default.ContentCopy,
                     contentDescription = null,
                     tint = Color(0xFF00E5FF),
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(15.dp).scale(copyIconScale)
                   )
                   Spacer(Modifier.width(8.dp))
-                  Text("ডিভাইস আইডি কপি করুন", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                  Text("ডিভাইস আইডি কপি করুন", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFE0F2FE))
                 }
               }
             }
           }
 
-          Spacer(Modifier.height(16.dp))
+          Spacer(Modifier.height(14.dp))
 
-          // 2x2 Action Buttons (Row 1: Admin WS + Admin TG; Row 2: TG Channel + Verify)
+          // 2x2 Action Buttons with Vibrant Cyber Color Grading & Specific Animated Icons
+          // Row 1: WhatsApp (Emerald Green + Wiggle) + Telegram Admin (Electric Blue + Flying Plane)
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1275,20 +1582,33 @@ fun MainScreen() {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
                 context.startActivity(intent)
               },
-              modifier = Modifier.weight(1f).height(46.dp),
+              modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .background(
+                  Brush.horizontalGradient(listOf(Color(0xFF047857), Color(0xFF10B981), Color(0xFF059669))),
+                  shape = RoundedCornerShape(12.dp)
+                ),
               colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF16A34A),
+                containerColor = Color.Transparent,
                 contentColor = Color.White
               ),
-              border = BorderStroke(1.dp, Color(0xFF22C55E)),
-              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.2.dp, Color(0xFF34D399)),
+              shape = RoundedCornerShape(12.dp),
               contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
               ) {
-                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Icon(
+                  imageVector = Icons.Default.Chat,
+                  contentDescription = null,
+                  modifier = Modifier
+                    .size(17.dp)
+                    .rotate(wsWiggle),
+                  tint = Color.White
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                   text = dynamicButtons.btn_admin_ws,
@@ -1305,20 +1625,34 @@ fun MainScreen() {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/Ornob_vai"))
                 context.startActivity(intent)
               },
-              modifier = Modifier.weight(1f).height(46.dp),
+              modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .background(
+                  Brush.horizontalGradient(listOf(Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF0284C7))),
+                  shape = RoundedCornerShape(12.dp)
+                ),
               colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2563EB),
+                containerColor = Color.Transparent,
                 contentColor = Color.White
               ),
-              border = BorderStroke(1.dp, Color(0xFF38BDF8)),
-              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.2.dp, Color(0xFF38BDF8)),
+              shape = RoundedCornerShape(12.dp),
               contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
               ) {
-                Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Icon(
+                  imageVector = Icons.Default.Send,
+                  contentDescription = null,
+                  modifier = Modifier
+                    .size(17.dp)
+                    .offset(x = tgPlaneFly.dp, y = (-tgPlaneFly).dp)
+                    .rotate(tgPlaneTilt),
+                  tint = Color.White
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                   text = dynamicButtons.btn_admin_tg,
@@ -1333,6 +1667,7 @@ fun MainScreen() {
 
           Spacer(Modifier.height(8.dp))
 
+          // Row 2: Telegram Channel (Cyber Crimson + Beacon Pulse) + Verify (Dark Cyber Slate + 360 Radar Spin)
           Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1342,20 +1677,33 @@ fun MainScreen() {
                 val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/+sjTCu5CFkscxNWU1"))
                 context.startActivity(intent)
               },
-              modifier = Modifier.weight(1f).height(46.dp),
+              modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .background(
+                  Brush.horizontalGradient(listOf(Color(0xFF9F1239), Color(0xFFE11D48), Color(0xFFDC2626))),
+                  shape = RoundedCornerShape(12.dp)
+                ),
               colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFDC2626),
+                containerColor = Color.Transparent,
                 contentColor = Color.White
               ),
-              border = BorderStroke(1.dp, Color(0xFFEF4444)),
-              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.2.dp, Color(0xFFFB7185)),
+              shape = RoundedCornerShape(12.dp),
               contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
               ) {
-                Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Icon(
+                  imageVector = Icons.Default.Campaign,
+                  contentDescription = null,
+                  modifier = Modifier
+                    .size(17.dp)
+                    .scale(channelScale),
+                  tint = Color.White
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                   text = dynamicButtons.btn_tg_channel,
@@ -1369,20 +1717,33 @@ fun MainScreen() {
 
             Button(
               onClick = { activity?.recreate() },
-              modifier = Modifier.weight(1f).height(46.dp),
+              modifier = Modifier
+                .weight(1f)
+                .height(48.dp)
+                .background(
+                  Brush.horizontalGradient(listOf(Color(0xFF0F172A), Color(0xFF1E293B), Color(0xFF312E81))),
+                  shape = RoundedCornerShape(12.dp)
+                ),
               colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1E293B),
+                containerColor = Color.Transparent,
                 contentColor = Color.White
               ),
-              border = BorderStroke(1.dp, Color(0xFF64748B)),
-              shape = RoundedCornerShape(10.dp),
+              border = BorderStroke(1.2.dp, Color(0xFF00E5FF)),
+              shape = RoundedCornerShape(12.dp),
               contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
             ) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
               ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF00E5FF))
+                Icon(
+                  imageVector = Icons.Default.Refresh,
+                  contentDescription = null,
+                  modifier = Modifier
+                    .size(17.dp)
+                    .rotate(verifyRotation),
+                  tint = Color(0xFF00E5FF)
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                   text = dynamicButtons.btn_verify,
