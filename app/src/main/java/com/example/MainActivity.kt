@@ -33,9 +33,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -360,6 +362,129 @@ fun fetchDynamicButtonNames(onSuccess: (ButtonNames) -> Unit) {
       }
     }
   })
+}
+
+// Country lookup for live ranges
+fun getCountryForRange(range: String): String {
+  val clean = range.replace("XXX", "").replace("X", "").replace("+", "").replace(" ", "").trim()
+  if (clean.isEmpty()) return ""
+
+  // 3-digit prefixes
+  if (clean.length >= 3) {
+    val three = clean.substring(0, 3)
+    val c = when (three) {
+      "266" -> "Lesotho 👉LS"
+      "237" -> "Cameroon 👉CM"
+      "234" -> "Nigeria 👉NG"
+      "254" -> "Kenya 👉KE"
+      "255" -> "Tanzania 👉TZ"
+      "256" -> "Uganda 👉UG"
+      "233" -> "Ghana 👉GH"
+      "225" -> "Ivory Coast 👉CI"
+      "229" -> "Benin 👉BJ"
+      "228" -> "Togo 👉TG"
+      "221" -> "Senegal 👉SN"
+      "222" -> "Mauritania 👉MR"
+      "223" -> "Mali 👉ML"
+      "224" -> "Guinea 👉GN"
+      "231" -> "Liberia 👉LR"
+      "232" -> "Sierra Leone 👉SL"
+      "242" -> "Congo 👉CG"
+      "243" -> "DR Congo 👉CD"
+      "244" -> "Angola 👉AO"
+      "250" -> "Rwanda 👉RW"
+      "251" -> "Ethiopia 👉ET"
+      "252" -> "Somalia 👉SO"
+      "257" -> "Burundi 👉BI"
+      "258" -> "Mozambique 👉MZ"
+      "260" -> "Zambia 👉ZM"
+      "263" -> "Zimbabwe 👉ZW"
+      "264" -> "Namibia 👉NA"
+      "265" -> "Malawi 👉MW"
+      "267" -> "Botswana 👉BW"
+      "268" -> "Eswatini 👉SZ"
+      "269" -> "Comoros 👉KM"
+      "880" -> "Bangladesh 👉BD"
+      "977" -> "Nepal 👉NP"
+      "855" -> "Cambodia 👉KH"
+      "856" -> "Laos 👉LA"
+      "966" -> "Saudi Arabia 👉SA"
+      "971" -> "UAE 👉AE"
+      "974" -> "Qatar 👉QA"
+      "965" -> "Kuwait 👉KW"
+      "968" -> "Oman 👉OM"
+      "962" -> "Jordan 👉JO"
+      "961" -> "Lebanon 👉LB"
+      "964" -> "Iraq 👉IQ"
+      "212" -> "Morocco 👉MA"
+      "213" -> "Algeria 👉DZ"
+      "216" -> "Tunisia 👉TN"
+      "218" -> "Libya 👉LY"
+      "249" -> "Sudan 👉SD"
+      "351" -> "Portugal 👉PT"
+      "380" -> "Ukraine 👉UA"
+      "358" -> "Finland 👉FI"
+      "353" -> "Ireland 👉IE"
+      else -> null
+    }
+    if (c != null) return c
+  }
+
+  // 2-digit prefixes
+  if (clean.length >= 2) {
+    val two = clean.substring(0, 2)
+    val c = when (two) {
+      "27" -> "South Africa 👉ZA"
+      "91" -> "India 👉IN"
+      "92" -> "Pakistan 👉PK"
+      "94" -> "Sri Lanka 👉LK"
+      "93" -> "Afghanistan 👉AF"
+      "63" -> "Philippines 👉PH"
+      "62" -> "Indonesia 👉ID"
+      "60" -> "Malaysia 👉MY"
+      "66" -> "Thailand 👉TH"
+      "84" -> "Vietnam 👉VN"
+      "95" -> "Myanmar 👉MM"
+      "90" -> "Turkey 👉TR"
+      "20" -> "Egypt 👉EG"
+      "98" -> "Iran 👉IR"
+      "55" -> "Brazil 👉BR"
+      "57" -> "Colombia 👉CO"
+      "52" -> "Mexico 👉MX"
+      "54" -> "Argentina 👉AR"
+      "51" -> "Peru 👉PE"
+      "56" -> "Chile 👉CL"
+      "58" -> "Venezuela 👉VE"
+      "44" -> "United Kingdom 👉GB"
+      "49" -> "Germany 👉DE"
+      "33" -> "France 👉FR"
+      "39" -> "Italy 👉IT"
+      "34" -> "Spain 👉ES"
+      "31" -> "Netherlands 👉NL"
+      "32" -> "Belgium 👉BE"
+      "48" -> "Poland 👉PL"
+      "40" -> "Romania 👉RO"
+      "30" -> "Greece 👉GR"
+      "46" -> "Sweden 👉SE"
+      "47" -> "Norway 👉NO"
+      "45" -> "Denmark 👉DK"
+      "43" -> "Austria 👉AT"
+      "41" -> "Switzerland 👉CH"
+      "61" -> "Australia 👉AU"
+      "64" -> "New Zealand 👉NZ"
+      else -> null
+    }
+    if (c != null) return c
+  }
+
+  // 1-digit prefixes
+  if (clean.length >= 1) {
+    val one = clean.substring(0, 1)
+    if (one == "1") return "USA/Canada 👉US"
+    if (one == "7") return "Russia 👉RU"
+  }
+
+  return ""
 }
 
 // Fetch live Facebook ranges
@@ -989,215 +1114,238 @@ fun MainScreen() {
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFF0D1117)) // Dark theme background
+        .background(Color(0xFF070B14))
         .padding(16.dp),
       contentAlignment = Alignment.Center
     ) {
-      Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.fillMaxWidth()
+      Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1120)),
+        border = BorderStroke(1.5.dp, Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFFA855F7), Color(0xFFEC4899)))),
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(4.dp)
       ) {
-        // Lock Icon
-        Surface(
-          shape = androidx.compose.foundation.shape.CircleShape,
-          color = Color.Transparent,
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF58A6FF)),
-          modifier = Modifier.size(64.dp)
+        Column(
+          horizontalAlignment = Alignment.CenterHorizontally,
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp)
         ) {
-          Box(contentAlignment = Alignment.Center) {
-            Icon(
-              imageVector = Icons.Default.Lock,
-              contentDescription = null,
-              tint = Color(0xFF58A6FF),
-              modifier = Modifier.size(32.dp)
-            )
-          }
-        }
-        
-        Spacer(Modifier.height(16.dp))
-        
-        Text(
-          text = mainTitle,
-          color = Color.White,
-          fontSize = 20.sp,
-          fontWeight = FontWeight.Bold
-        )
-        
-        Spacer(Modifier.height(24.dp))
-        
-        // Warning Box
-        Surface(
-          color = Color(0xFF1E1111), // Dark red background
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5534B)),
-          shape = RoundedCornerShape(8.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+          // Top VIP Badge
+          Surface(
+            color = Color(0xFF171E2E),
+            shape = RoundedCornerShape(50.dp),
+            border = BorderStroke(1.dp, Color(0xFFF59E0B)),
+            modifier = Modifier.padding(bottom = 12.dp)
           ) {
-            Text(
-              "ব্যবহারকারী: $userName",
-              color = Color.White,
-              fontSize = 14.sp
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-              text = descText,
-              color = Color(0xFFE5534B), // Red text
-              textAlign = TextAlign.Center,
-              fontSize = 14.sp
-            )
-            if (blockReason == "EXPIRED" && expiryDateText.isNotEmpty()) {
-              Spacer(Modifier.height(8.dp))
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp),
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(8.dp)
+                  .background(Color(0xFF10B981), shape = androidx.compose.foundation.shape.CircleShape)
+              )
               Text(
-                "(মেয়াদ উত্তীর্ণ: $expiryDateText)",
-                color = Color(0xFFE5534B),
-                fontSize = 12.sp
+                text = "👑🅾🅁🄽🄾🄱- ⟨🆉🅾🅽🅴⟩💭",
+                color = Color(0xFFFCD34D),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
               )
             }
           }
-        }
 
-        Spacer(Modifier.height(16.dp))
-
-        // Device ID Box
-        Surface(
-          color = Color(0xFF161B22), // Dark box
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
-          shape = RoundedCornerShape(8.dp),
-          modifier = Modifier.fillMaxWidth()
-        ) {
-          Column(
-            modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+          // Center Icon Badge
+          Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFF0F1A30),
+            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+            modifier = Modifier.size(60.dp)
           ) {
-            Text("আপনার ডিভাইস আইডি (Device ID):", color = Color.White, fontSize = 14.sp)
-            Spacer(Modifier.height(12.dp))
-            
-            // ID value area
-            Surface(
-              color = Color(0xFF0D1117),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF58A6FF)),
-              shape = RoundedCornerShape(4.dp),
-              modifier = Modifier.fillMaxWidth()
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Default.Security,
+                contentDescription = null,
+                tint = Color(0xFF00E5FF),
+                modifier = Modifier.size(30.dp)
+              )
+            }
+          }
+          
+          Spacer(Modifier.height(12.dp))
+          
+          Text(
+            text = mainTitle,
+            color = Color.White,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+          )
+
+          Text(
+            text = "ব্যবহারকারী: $userName",
+            color = Color(0xFF94A3B8),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 4.dp)
+          )
+          
+          Spacer(Modifier.height(14.dp))
+          
+          // Warning/Status Box
+          Surface(
+            color = Color(0xFF1A1325),
+            border = BorderStroke(1.dp, Color(0xFFA855F7).copy(alpha = 0.7f)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              horizontalAlignment = Alignment.CenterHorizontally
             ) {
               Text(
-                text = deviceId,
-                color = Color(0xFF58A6FF),
+                text = descText,
+                color = Color(0xFFF472B6),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(12.dp),
-                fontSize = 16.sp
+                fontSize = 13.sp
               )
+              if (blockReason == "EXPIRED" && expiryDateText.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                  "(মেয়াদ উত্তীর্ণ: $expiryDateText)",
+                  color = Color(0xFFFDA4AF),
+                  fontSize = 11.sp
+                )
+              }
             }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            // Copy Button
-            Surface(
-              color = Color(0xFF161B22),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D)),
-              shape = RoundedCornerShape(4.dp),
-              modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
+          }
+
+          Spacer(Modifier.height(14.dp))
+
+          // Device ID Box
+          Surface(
+            color = Color(0xFF070B14),
+            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.6f)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(
+              modifier = Modifier.padding(12.dp),
+              horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+              Text("আপনার ডিভাইস আইডি (Device ID):", color = Color(0xFF94A3B8), fontSize = 12.sp)
+              Spacer(Modifier.height(8.dp))
+              
+              Text(
+                text = deviceId,
+                color = Color(0xFF00E5FF),
+                textAlign = TextAlign.Center,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                modifier = Modifier
+                  .background(Color(0xFF0B1322), RoundedCornerShape(6.dp))
+                  .fillMaxWidth()
+                  .padding(8.dp)
+              )
+              
+              Spacer(Modifier.height(8.dp))
+              
+              Button(
+                onClick = {
                   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                   val clip = ClipData.newPlainText("Device ID", deviceId)
                   clipboard.setPrimaryClip(clip)
                   Toast.makeText(context, "ডিভাইস আইডি কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
-                }
-            ) {
-              Row(
-                modifier = Modifier.padding(12.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+                },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = Color(0xFF0E1A30),
+                  contentColor = Color(0xFF00E5FF)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxWidth().height(36.dp)
               ) {
-                Icon(
-                  imageVector = Icons.Default.ContentCopy,
-                  contentDescription = null,
-                  tint = Color.White,
-                  modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text("ডিভাইস আইডি কপি করুন", color = Color.White)
+                Row(
+                  horizontalArrangement = Arrangement.Center,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = null,
+                    tint = Color(0xFF00E5FF),
+                    modifier = Modifier.size(14.dp)
+                  )
+                  Spacer(Modifier.width(6.dp))
+                  Text("ডিভাইস আইডি কপি করুন", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
               }
             }
           }
-        }
 
-        Spacer(Modifier.height(16.dp))
+          Spacer(Modifier.height(16.dp))
 
-        // Action Buttons Row 1
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-          Button(
-            onClick = {
-              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
-              context.startActivity(intent)
-            },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF238636)), // Green
-            shape = RoundedCornerShape(8.dp)
-          ) {
-            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(dynamicButtons.btn_admin_ws)
-          }
-          
-          Button(
-            onClick = {
-              val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("tg://resolve?domain=ornob24"))
-              try { context.startActivity(intent) } catch (e: Exception) {
-                val webIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/ornob24"))
-                context.startActivity(webIntent)
-              }
-            },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F6FEB)), // Blue
-            shape = RoundedCornerShape(8.dp)
-          ) {
-            Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(dynamicButtons.btn_admin_tg)
-          }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // Action Buttons Row 2
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+          // Action Buttons: Gradient Main CTA & Secondary Cyber CTAs
           Button(
             onClick = {
               val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/+sjTCu5CFkscxNWU1"))
               context.startActivity(intent)
             },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDA3633)), // Red
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(44.dp)
+              .background(
+                Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFF8B5CF6), Color(0xFFEC4899))),
+                shape = RoundedCornerShape(10.dp)
+              ),
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+            shape = RoundedCornerShape(10.dp)
           ) {
-            Icon(Icons.Default.Campaign, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(dynamicButtons.btn_tg_channel)
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.Center
+            ) {
+              Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(dynamicButtons.btn_tg_channel, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
           }
 
-          Button(
-            onClick = { 
-              // Refresh action
-              activity?.recreate()
-            },
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF21262D)), // Dark gray
-            shape = RoundedCornerShape(8.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF30363D))
+          Spacer(Modifier.height(8.dp))
+
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
           ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
-            Spacer(Modifier.width(8.dp))
-            Text(dynamicButtons.btn_verify, color = Color.White)
+            Button(
+              onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://wa.me/8801300349649"))
+                context.startActivity(intent)
+              },
+              modifier = Modifier.weight(1f).height(40.dp),
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D251D), contentColor = Color(0xFF10B981)),
+              border = BorderStroke(1.dp, Color(0xFF10B981)),
+              shape = RoundedCornerShape(8.dp)
+            ) {
+              Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF10B981))
+              Spacer(Modifier.width(6.dp))
+              Text(dynamicButtons.btn_admin_ws, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Button(
+              onClick = { activity?.recreate() },
+              modifier = Modifier.weight(1f).height(40.dp),
+              colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF151D2A), contentColor = Color.White),
+              border = BorderStroke(1.dp, Color(0xFF334155)),
+              shape = RoundedCornerShape(8.dp)
+            ) {
+              Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color(0xFF00E5FF))
+              Spacer(Modifier.width(6.dp))
+              Text(dynamicButtons.btn_verify, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
           }
         }
       }
@@ -1257,29 +1405,41 @@ fun MainScreen() {
   var customPassword by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "Pass@" + (1000..9999).random().toString()) }
   var selectedCountry by remember { mutableStateOf(prefs.getString("selected_country", "Bangladesh") ?: "Bangladesh") }
 
-  // Loop for active OTP checking: checks active phone and any recent accounts in history whose OTP is not yet fetched
-  LaunchedEffect(activePhoneChecking) {
+  // Loop for continuous background OTP checking: runs from startup without needing to open the tool dialog!
+  LaunchedEffect(Unit) {
     while (true) {
       val now = System.currentTimeMillis()
       val history = getHistory(context)
       val pendingItems = history.filter { 
-        it.otp.isEmpty() && (now - it.timestamp < 20 * 60 * 1000L)
+        it.otp.isEmpty() && (now - it.timestamp < 30 * 60 * 1000L)
       }
 
-      if (pendingItems.isNotEmpty()) {
-        for (item in pendingItems) {
+      val targetPhones = mutableSetOf<String>()
+      if (activePhoneChecking.isNotEmpty()) targetPhones.add(activePhoneChecking)
+      if (lastCreatedPhone.isNotEmpty()) targetPhones.add(lastCreatedPhone)
+      pendingItems.forEach { targetPhones.add(it.phone) }
+
+      if (targetPhones.isNotEmpty()) {
+        for (targetPhone in targetPhones) {
           checkOtpForPhone(
-            phone = item.phone,
+            phone = targetPhone,
             onSuccess = { otp, _ ->
+              // Copy directly to Android OS system clipboard so Gboard immediately registers it!
+              val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+              val clip = android.content.ClipData.newPlainText("OTP", otp)
+              sysClipboard.setPrimaryClip(clip)
               clipboardManager.setText(AnnotatedString(otp))
-              updateOtpInHistory(context, item.phone, otp)
+
+              updateOtpInHistory(context, targetPhone, otp)
               incrementTodayOtpCount(context)
-              if (item.phone == activePhoneChecking || activePhoneChecking.isEmpty()) {
-                lastCreatedOtp = otp
-                activePhoneChecking = ""
-              }
+
+              if (targetPhone == activePhoneChecking) activePhoneChecking = ""
+              lastCreatedOtp = otp
+
+              // System Toast for instant feedback outside tool
+              Toast.makeText(context, "OTP ($otp) গিবোর্ডে কপি হয়েছে!", Toast.LENGTH_LONG).show()
               scope.launch {
-                snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে পাওয়া গেছে: $otp (${item.phone})")
+                snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে গিবোর্ডে কপি হয়েছে: $otp")
               }
             },
             onFailure = {}
@@ -1287,24 +1447,7 @@ fun MainScreen() {
         }
       }
 
-      if (activePhoneChecking.isNotEmpty()) {
-        checkOtpForPhone(
-          phone = activePhoneChecking,
-          onSuccess = { otp, _ ->
-            clipboardManager.setText(AnnotatedString(otp))
-            updateOtpInHistory(context, activePhoneChecking, otp)
-            incrementTodayOtpCount(context)
-            lastCreatedOtp = otp
-            scope.launch {
-              snackbarHostState.showSnackbar("OTP স্বয়ংক্রিয়ভাবে কপি করা হয়েছে: $otp")
-            }
-            activePhoneChecking = ""
-          },
-          onFailure = {}
-        )
-      }
-
-      kotlinx.coroutines.delay(2500)
+      kotlinx.coroutines.delay(2000)
     }
   }
 
@@ -1352,48 +1495,99 @@ fun MainScreen() {
 
     AlertDialog(
       onDismissRequest = { showLiveConsoleDialog = false },
+      containerColor = Color(0xFF070B14),
+      titleContentColor = Color.White,
+      textContentColor = Color.White,
       title = {
-         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(dynamicButtons.btn_live_console, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+         Row(
+           modifier = Modifier.fillMaxWidth(),
+           horizontalArrangement = Arrangement.SpaceBetween,
+           verticalAlignment = Alignment.CenterVertically
+         ) {
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+              Icon(
+                imageVector = Icons.Default.Terminal,
+                contentDescription = null,
+                tint = Color(0xFF00E5FF),
+                modifier = Modifier.size(20.dp)
+              )
+              Text(
+                dynamicButtons.btn_live_console,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color.White
+              )
+            }
             IconButton(onClick = { fetchLive() }) {
-               Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = MaterialTheme.colorScheme.primary)
+               Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFF00E5FF))
             }
          }
       },
       text = {
          Column(modifier = Modifier.fillMaxWidth()) {
             if (isFetchingLiveRanges) {
-               CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+               Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                 CircularProgressIndicator(color = Color(0xFF00E5FF))
+               }
             } else if (errorMessage.isNotEmpty()) {
                Text("Error: $errorMessage", color = MaterialTheme.colorScheme.error)
             } else if (liveRanges.isEmpty()) {
-               Text("কোনো রেঞ্জ পাওয়া যায়নি।")
+               Text("কোনো রেঞ্জ পাওয়া যায়নি।", color = Color(0xFF94A3B8))
             } else {
-               Text("Facebook Ranges (Click to copy):", fontSize = 14.sp, color = Color.Gray)
+               Text(
+                 "Facebook Live Ranges (Click to auto setup):",
+                 fontSize = 12.sp,
+                 color = Color(0xFF00E5FF),
+                 fontWeight = FontWeight.SemiBold
+               )
                Spacer(Modifier.height(8.dp))
                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
                   items(liveRanges.size) { index ->
                      val range = liveRanges[index]
+                     val countryInfo = getCountryForRange(range)
+                     val displayText = if (countryInfo.isNotEmpty()) "$range [$countryInfo]" else range
                      Card(
                         modifier = Modifier
                           .fillMaxWidth()
                           .padding(vertical = 4.dp)
                           .clickable {
+                             val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                             val clip = android.content.ClipData.newPlainText("Range", range)
+                             sysClipboard.setPrimaryClip(clip)
                              clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(range))
                              selectedRange = range
                              prefs.edit().putString("saved_range", range).apply()
-                             Toast.makeText(context, "Range Copied & Auto Setup!", Toast.LENGTH_SHORT).show()
+                             Toast.makeText(context, "$displayText Copied & Selected!", Toast.LENGTH_SHORT).show()
                              showLiveConsoleDialog = false
                           },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1527))
                      ) {
-                        Text(
-                           text = range,
-                           modifier = Modifier.padding(12.dp),
-                           fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                           fontWeight = FontWeight.Bold,
-                           fontSize = 14.sp
-                        )
+                        Row(
+                          modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                        ) {
+                           Text(
+                              text = displayText,
+                              fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                              fontWeight = FontWeight.Bold,
+                              fontSize = 13.sp,
+                              color = Color.White
+                           )
+                           Icon(
+                             imageVector = Icons.Default.ContentCopy,
+                             contentDescription = "Copy Range",
+                             tint = Color(0xFF00E5FF),
+                             modifier = Modifier.size(16.dp)
+                           )
+                        }
                      }
                   }
                }
@@ -1402,7 +1596,7 @@ fun MainScreen() {
       },
       confirmButton = {
          TextButton(onClick = { showLiveConsoleDialog = false }) {
-            Text("Close")
+            Text("Close", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold)
          }
       }
     )
@@ -1645,8 +1839,87 @@ fun MainScreen() {
             modifier = Modifier
               .fillMaxWidth()
               .padding(horizontal = 2.dp, vertical = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
           ) {
+            // Quick Access Thumb-Level Row: Live Console & Settings
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 1.dp),
+              horizontalArrangement = Arrangement.spacedBy(4.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              // Live Console Button (Prominent Cyber Cyan Card)
+              Button(
+                onClick = { showLiveConsoleDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = Color(0xFF0B192C),
+                  contentColor = Color(0xFF00E5FF)
+                ),
+                border = BorderStroke(1.dp, Color(0xFF00E5FF)),
+                shape = RoundedCornerShape(4.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier
+                  .weight(1.3f)
+                  .height(30.dp)
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.Center
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Terminal,
+                    contentDescription = "Live Console",
+                    tint = Color(0xFF00E5FF),
+                    modifier = Modifier.size(14.dp)
+                  )
+                  Spacer(Modifier.width(5.dp))
+                  Text(
+                    text = dynamicButtons.btn_live_console,
+                    color = Color(0xFF00E5FF),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    maxLines = 1
+                  )
+                }
+              }
+
+              // Settings Button (Prominent Cyber Purple Card)
+              Button(
+                onClick = { showSettingsDialog = true },
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = Color(0xFF1E1035),
+                  contentColor = Color(0xFFA855F7)
+                ),
+                border = BorderStroke(1.dp, Color(0xFFA855F7)),
+                shape = RoundedCornerShape(4.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                modifier = Modifier
+                  .weight(1f)
+                  .height(30.dp)
+              ) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.Center
+                ) {
+                  Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = Color(0xFFA855F7),
+                    modifier = Modifier.size(14.dp)
+                  )
+                  Spacer(Modifier.width(5.dp))
+                  Text(
+                    text = "Settings",
+                    color = Color(0xFFA855F7),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    maxLines = 1
+                  )
+                }
+              }
+            }
+
             // Bottom Rows: Ultra Compact Button Sizes
             val compactBtnPadding = PaddingValues(horizontal = 2.dp, vertical = 1.dp)
             val compactTextStyle = MaterialTheme.typography.labelSmall.copy(
@@ -1764,10 +2037,11 @@ fun MainScreen() {
               Button(
                 onClick = { showCreatorDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFFF97316), // Orange
+                  containerColor = Color(0xFF0369A1), // Electric Sky Blue
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF00E5FF)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1776,10 +2050,11 @@ fun MainScreen() {
               Button(
                 onClick = { showSetRangeDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF8B5CF6), // Violet
+                  containerColor = Color(0xFF6D28D9), // Vivid Purple/Violet
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFFA855F7)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1794,10 +2069,11 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF3B82F6), // Vibrant Blue
+                  containerColor = Color(0xFF047857), // Neon Emerald
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF10B981)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1821,10 +2097,11 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF06B6D4), // Deep Cyan/Teal
+                  containerColor = Color(0xFF1D4ED8), // Royal Sapphire Blue
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF38BDF8)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1833,10 +2110,11 @@ fun MainScreen() {
               Button(
                 onClick = { showHistoryDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFFF43F5E), // Rose/Pink
+                  containerColor = Color(0xFFBE185D), // Cyber Pink/Magenta
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFFF43F5E)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1845,10 +2123,11 @@ fun MainScreen() {
               Button(
                 onClick = { showCookieLoginDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFFD97706), // Amber/Golden
+                  containerColor = Color(0xFFB45309), // Luxury Amber/Gold
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFFFBBF24)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1869,10 +2148,11 @@ fun MainScreen() {
                   scope.launch { snackbarHostState.showSnackbar("Gmail Copied!") }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF10B981), // Vibrant Green/Emerald
+                  containerColor = Color(0xFF0F766E), // Deep Cyber Teal
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF14B8A6)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1881,10 +2161,11 @@ fun MainScreen() {
               Button(
                 onClick = { webView?.loadUrl("https://m.facebook.com/login/") },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF1877F2), // Official Facebook Blue
+                  containerColor = Color(0xFF1E40AF), // Official FB Dark Blue
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF60A5FA)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1893,10 +2174,11 @@ fun MainScreen() {
               Button(
                 onClick = { webView?.loadUrl("https://whoer.net/") },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFFD946EF), // Fuchsia/Pink-Purple
+                  containerColor = Color(0xFF86198F), // Neon Fuchsia
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFFE879F9)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1913,10 +2195,11 @@ fun MainScreen() {
               Button(
                 onClick = { showProxyConfigDialog = true },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = Color(0xFF64748B), // Slate Grey
+                  containerColor = Color(0xFF334155), // Dark Slate
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, Color(0xFF94A3B8)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1932,10 +2215,11 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = if (isProxyEnabled) Color(0xFF22C55E) else Color(0xFFEF4444), // Vibrant Green or Red
+                  containerColor = if (isProxyEnabled) Color(0xFF15803D) else Color(0xFF991B1B), // Cyber Green or Red
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, if (isProxyEnabled) Color(0xFF22C55E) else Color(0xFFEF4444)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -1958,10 +2242,11 @@ fun MainScreen() {
                   }
                 },
                 colors = ButtonDefaults.buttonColors(
-                  containerColor = if (isDesktopMode) Color(0xFFF59E0B) else Color(0xFF475569), // Bright Amber/Orange or Deep Slate
+                  containerColor = if (isDesktopMode) Color(0xFFC2410C) else Color(0xFF1E293B), // Cyber Amber/Orange or Deep Dark Slate
                   contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(2.dp),
+                border = BorderStroke(1.dp, if (isDesktopMode) Color(0xFFFB923C) else Color(0xFF64748B)),
+                shape = RoundedCornerShape(4.dp),
                 contentPadding = compactBtnPadding,
                 modifier = Modifier.weight(1f).height(compactBtnHeight)
               ) {
@@ -2134,20 +2419,39 @@ fun MainScreen() {
   if (showCreatorDialog) {
     AlertDialog(
       onDismissRequest = { showCreatorDialog = false },
+      containerColor = Color(0xFF070B14),
+      titleContentColor = Color.White,
+      textContentColor = Color.White,
       title = {
         Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp)
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
         ) {
-          Icon(
-            imageVector = Icons.Default.Android,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary
-          )
-          Text(
-            text = "অটো অ্যাকাউন্ট ক্রিয়েটর",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-          )
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            Surface(
+              shape = RoundedCornerShape(8.dp),
+              color = Color(0xFF0F1A30),
+              border = BorderStroke(1.dp, Color(0xFF00E5FF)),
+              modifier = Modifier.size(28.dp)
+            ) {
+              Box(contentAlignment = Alignment.Center) {
+                Text("⚡", fontSize = 14.sp)
+              }
+            }
+            Text(
+              text = "FB Tool Auto Creator",
+              style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+              color = Color.White
+            )
+          }
+
+          IconButton(onClick = { showCreatorDialog = false }, modifier = Modifier.size(28.dp)) {
+            Text("✕", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+          }
         }
       },
       text = {
@@ -2155,199 +2459,486 @@ fun MainScreen() {
           modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState()),
-          verticalArrangement = Arrangement.spacedBy(12.dp)
+          verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-          Text(
-            text = "রেন্জ: $selectedRange",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-
-          // Country Selector
-          var countryExpanded by remember { mutableStateOf(false) }
-          val countries = listOf("Bangladesh", "United States", "China", "Madagascar")
-          
-          ExposedDropdownMenuBox(
-            expanded = countryExpanded,
-            onExpandedChange = { countryExpanded = !countryExpanded }
+          // Card 1: Number Range
+          Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1322)),
+            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.7f)),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
           ) {
-            OutlinedTextField(
-              value = selectedCountry,
-              onValueChange = { },
-              readOnly = true,
-              label = { Text("একাউন্ট নেম টাইপ (Country)") },
-              trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryExpanded) },
-              colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-              modifier = Modifier.fillMaxWidth().menuAnchor()
-            )
-            ExposedDropdownMenu(
-              expanded = countryExpanded,
-              onDismissRequest = { countryExpanded = false }
-            ) {
-              countries.forEach { selectionOption ->
-                DropdownMenuItem(
-                  text = { Text(selectionOption) },
-                  onClick = {
-                    selectedCountry = selectionOption
-                    prefs.edit().putString("selected_country", selectionOption).apply()
-                    countryExpanded = false
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  Surface(
+                    color = Color(0xFF0284C7),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.size(22.dp)
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      Text("#", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                   }
-                )
+                  Text("Number Range", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+
+                TextButton(
+                  onClick = { showLiveConsoleDialog = true },
+                  contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                  modifier = Modifier.height(24.dp)
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(12.dp))
+                    Text("Refresh", color = Color(0xFF00E5FF), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                  }
+                }
+              }
+
+              Surface(
+                color = Color(0xFF070B14),
+                border = BorderStroke(1.dp, Color(0xFF1E293B)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth().clickable { showLiveConsoleDialog = true }
+              ) {
+                Row(
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                      color = Color(0xFF1877F2),
+                      shape = androidx.compose.foundation.shape.CircleShape,
+                      modifier = Modifier.size(18.dp)
+                    ) {
+                      Box(contentAlignment = Alignment.Center) {
+                        Text("f", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                      }
+                    }
+                    Text(
+                      text = if (selectedRange.isNotEmpty()) selectedRange else "রেঞ্জ নির্বাচন করুন...",
+                      color = if (selectedRange.isNotEmpty()) Color.White else Color(0xFF64748B),
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 13.sp,
+                      fontFamily = FontFamily.Monospace
+                    )
+                  }
+                  Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = Color(0xFF64748B))
+                }
               }
             }
           }
 
-          // Editable password field
-          OutlinedTextField(
-            value = customPassword,
-            onValueChange = { 
-              customPassword = it
-              prefs.edit().putString("saved_password", it).apply()
-            },
-            label = { Text("অ্যাকাউন্ট পাসওয়ার্ড") },
-            leadingIcon = { Icon(imageVector = Icons.Default.Key, contentDescription = null) },
-            trailingIcon = {
-              IconButton(onClick = { 
-                val newPass = "Pass@" + (1000..9999).random().toString()
-                customPassword = newPass
-                prefs.edit().putString("saved_password", newPass).apply()
-              }) {
-                Icon(imageVector = Icons.Default.Refresh, contentDescription = "নতুন পাসওয়ার্ড জেনারেট করুন")
-              }
-            },
-            singleLine = true,
+          // Card 2: Account Name
+          var countryExpanded by remember { mutableStateOf(false) }
+          val countries = listOf("Bangladesh", "United States", "China", "Madagascar")
+          Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1322)),
+            border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth()
-          )
+          ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  Surface(
+                    color = Color(0xFF0284C7),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.size(22.dp)
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      Icon(Icons.Default.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    }
+                  }
+                  Text("Account Name", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
 
-          // Creator button
-          Button(
-            onClick = {
-              if (selectedRange.isEmpty()) {
-                currentCreationStatus = "please enter range"
-                return@Button
+                Surface(
+                  color = Color(0xFF00E5FF).copy(alpha = 0.15f),
+                  border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+                  shape = RoundedCornerShape(50.dp),
+                  modifier = Modifier.height(22.dp)
+                ) {
+                  Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 8.dp)) {
+                    Text("অটো নেম", color = Color(0xFF00E5FF), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                  }
+                }
               }
-              isCreatingAccount = true
-              
-              currentCreationStatus = "account creating..."
-              lastCreatedPhone = ""
-              lastCreatedUid = ""
-              lastCreatedCookies = ""
-              lastCreatedOtp = ""
 
-              fetchNumber(
-                rangeCode = selectedRange,
-                onSuccess = { phoneNumber ->
-                  scope.launch {
-                    lastCreatedPhone = phoneNumber
-                    createFacebookAccount(
-                      context = context,
-                      phone = phoneNumber,
-                      passwordInput = customPassword,
-                      country = selectedCountry,
-                      onSuccess = { uid, name, cookies ->
-                        scope.launch {
-                          lastCreatedUid = uid
-                          lastCreatedCookies = cookies
-                          currentCreationStatus = "create success"
-                          saveAccountToHistory(context, phoneNumber, uid, cookies, customPassword, "")
-                          lastSuccessCookies = cookies
-                          prefs.edit().putString("last_success_cookies", cookies).apply()
-                          activePhoneChecking = phoneNumber // Start OTP checking loop
-                          isCreatingAccount = false
-
-                          // Automatic Cookie Login on Successful Creation
-                          if (cookies.isNotEmpty()) {
-                            try {
-                              val cookieManager = CookieManager.getInstance()
-                              cookieManager.setAcceptCookie(true)
-                              cookieManager.removeAllCookies(null)
-                              
-                              val domains = listOf(
-                                "https://.facebook.com",
-                                "https://facebook.com",
-                                "https://m.facebook.com",
-                                "https://limited.facebook.com"
-                              )
-                              
-                              val trimmed = cookies.trim()
-                              if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-                                val jsonArray = org.json.JSONArray(trimmed)
-                                for (i in 0 until jsonArray.length()) {
-                                  val obj = jsonArray.getJSONObject(i)
-                                  val cookieName = obj.optString("name")
-                                  val cookieValue = obj.optString("value")
-                                  val domain = obj.optString("domain", ".facebook.com")
-                                  val path = obj.optString("path", "/")
-                                  if (cookieName.isNotEmpty()) {
-                                    val cookieString = "$cookieName=$cookieValue; Domain=$domain; Path=$path"
-                                    domains.forEach { d ->
-                                      cookieManager.setCookie(d, cookieString)
-                                    }
-                                  }
-                                }
-                              } else {
-                                val parts = trimmed.split(";")
-                                for (part in parts) {
-                                  val cleanPart = part.trim()
-                                  if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
-                                    domains.forEach { d ->
-                                      cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/")
-                                    }
-                                  }
-                                }
-                              }
-                              cookieManager.flush()
-                              // Ensure proxy is applied to WebView during automatic login if settings exist
-                              if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
-                                applyWebViewProxy(context, true, proxyHost, proxyPort)
-                              }
-                              webView?.loadUrl(a.b1())
-                              snackbarHostState.showSnackbar("অ্যাকাউন্ট তৈরি সফল! অটোমেটিক লগইন করা হচ্ছে...")
-                            } catch (e: Exception) {
-                              e.printStackTrace()
-                            }
-                          }
-                        }
-                      },
-                      onFailure = { errorMsg ->
-                        scope.launch {
-                          currentCreationStatus = "create failed"
-                          saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
-                          isCreatingAccount = false
-                        }
+              ExposedDropdownMenuBox(
+                expanded = countryExpanded,
+                onExpandedChange = { countryExpanded = !countryExpanded }
+              ) {
+                OutlinedTextField(
+                  value = selectedCountry,
+                  onValueChange = { },
+                  readOnly = true,
+                  label = { Text("Country Style", color = Color(0xFF00E5FF)) },
+                  trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = countryExpanded) },
+                  colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF00E5FF),
+                    unfocusedBorderColor = Color(0xFF1E293B),
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedContainerColor = Color(0xFF070B14),
+                    unfocusedContainerColor = Color(0xFF070B14)
+                  ),
+                  shape = RoundedCornerShape(10.dp),
+                  modifier = Modifier.fillMaxWidth().menuAnchor()
+                )
+                ExposedDropdownMenu(
+                  expanded = countryExpanded,
+                  onDismissRequest = { countryExpanded = false },
+                  modifier = Modifier.background(Color(0xFF0B1322))
+                ) {
+                  countries.forEach { selectionOption ->
+                    DropdownMenuItem(
+                      text = { Text(selectionOption, color = Color.White) },
+                      onClick = {
+                        selectedCountry = selectionOption
+                        prefs.edit().putString("selected_country", selectionOption).apply()
+                        countryExpanded = false
                       }
                     )
                   }
-                },
-                onFailure = { errorMsg ->
-                  scope.launch {
-                    currentCreationStatus = "create failed"
-                    isCreatingAccount = false
+                }
+              }
+            }
+          }
+
+          // Card 3: Password
+          Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1322)),
+            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.7f)),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Surface(
+                  color = Color(0xFF059669),
+                  shape = RoundedCornerShape(6.dp),
+                  modifier = Modifier.size(22.dp)
+                ) {
+                  Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                   }
                 }
+                Text("Password", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+              }
+
+              OutlinedTextField(
+                value = customPassword,
+                onValueChange = { 
+                  customPassword = it
+                  prefs.edit().putString("saved_password", it).apply()
+                },
+                placeholder = { Text("Enter password...", color = Color(0xFF64748B)) },
+                leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = Color(0xFF10B981)) },
+                trailingIcon = {
+                  IconButton(onClick = { 
+                    val newPass = "Pass@" + (1000..9999).random().toString()
+                    customPassword = newPass
+                    prefs.edit().putString("saved_password", newPass).apply()
+                  }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Generate", tint = Color(0xFF10B981))
+                  }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                  focusedBorderColor = Color(0xFF10B981),
+                  unfocusedBorderColor = Color(0xFF1E293B),
+                  focusedTextColor = Color.White,
+                  unfocusedTextColor = Color.White,
+                  focusedContainerColor = Color(0xFF070B14),
+                  unfocusedContainerColor = Color(0xFF070B14)
+                ),
+                shape = RoundedCornerShape(10.dp),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
               )
-            },
-            enabled = !isCreatingAccount && selectedRange.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp)
-          ) {
-            if (isCreatingAccount) {
-              CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp
-              )
-              Spacer(modifier = Modifier.width(8.dp))
             }
-            Text("অ্যাকাউন্ট তৈরি করুন")
           }
+
+          // Card 4: Proxy
+          Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0B1322)),
+            border = BorderStroke(1.dp, Color(0xFFA855F7).copy(alpha = 0.7f)),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                  Surface(
+                    color = Color(0xFF7C3AED),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.size(22.dp)
+                  ) {
+                    Box(contentAlignment = Alignment.Center) {
+                      Icon(Icons.Default.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    }
+                  }
+                  Text("Proxy", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                TextButton(
+                  onClick = { showProxyConfigDialog = true },
+                  contentPadding = PaddingValues(0.dp),
+                  modifier = Modifier.height(24.dp)
+                ) {
+                  Text("Set Proxy", color = Color(0xFFA855F7), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+              }
+
+              Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                  color = if (!isProxyEnabled) Color(0xFF00E5FF) else Color(0xFF070B14),
+                  border = BorderStroke(1.dp, if (!isProxyEnabled) Color(0xFF00E5FF) else Color(0xFF1E293B)),
+                  shape = RoundedCornerShape(8.dp),
+                  modifier = Modifier.weight(1f).clickable {
+                    isProxyEnabled = false
+                    prefs.edit().putBoolean("is_proxy_enabled", false).apply()
+                    applyWebViewProxy(context, false, "", "")
+                  }
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                  ) {
+                    Text(
+                      "⚡ Direct Mode",
+                      color = if (!isProxyEnabled) Color(0xFF070B14) else Color.White,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 11.sp
+                    )
+                  }
+                }
+
+                Surface(
+                  color = if (isProxyEnabled) Color(0xFFA855F7) else Color(0xFF070B14),
+                  border = BorderStroke(1.dp, if (isProxyEnabled) Color(0xFFA855F7) else Color(0xFF1E293B)),
+                  shape = RoundedCornerShape(8.dp),
+                  modifier = Modifier.weight(1f).clickable {
+                    isProxyEnabled = true
+                    prefs.edit().putBoolean("is_proxy_enabled", true).apply()
+                    applyWebViewProxy(context, true, proxyHost, proxyPort)
+                  }
+                ) {
+                  Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                  ) {
+                    Text(
+                      "🌐 Worker Proxy",
+                      color = Color.White,
+                      fontWeight = FontWeight.Bold,
+                      fontSize = 11.sp
+                    )
+                  }
+                }
+              }
+            }
+          }
+
+          // Button 1: OTP CONFIRM (Cyan to Blue Gradient)
+          Surface(
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(46.dp)
+              .background(
+                Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFF0088FF))),
+                shape = RoundedCornerShape(12.dp)
+              )
+              .clickable {
+                if (lastCreatedOtp.isNotEmpty() && lastCreatedOtp != "Expired" && lastCreatedOtp != "number expired") {
+                  val sysClipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                  val clip = ClipData.newPlainText("OTP", lastCreatedOtp)
+                  sysClipboard.setPrimaryClip(clip)
+                  clipboardManager.setText(AnnotatedString(lastCreatedOtp))
+                  Toast.makeText(context, "OTP: $lastCreatedOtp কপি করা হয়েছে!", Toast.LENGTH_SHORT).show()
+                } else {
+                  Toast.makeText(context, "কোনো নতুন ওটিপি আসেনি", Toast.LENGTH_SHORT).show()
+                }
+              },
+            color = Color.Transparent,
+            shape = RoundedCornerShape(12.dp)
+          ) {
+            Row(
+              modifier = Modifier.padding(horizontal = 14.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.Center
+            ) {
+              Icon(Icons.Default.Key, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+              Spacer(Modifier.width(8.dp))
+              Text(
+                text = if (lastCreatedOtp.isNotEmpty() && lastCreatedOtp != "Expired" && lastCreatedOtp != "number expired") "OTP: $lastCreatedOtp (কপি করুন)" else "ওটিপি কোড (OTP)",
+                color = Color.Black,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 13.sp
+              )
+            }
+          }
+
+          // Button 2: Create Account Button (Cyan to Purple to Pink Gradient)
+          Button(
+            onClick = {
+                if (selectedRange.isEmpty()) {
+                  currentCreationStatus = "please enter range"
+                  return@Button
+                }
+                isCreatingAccount = true
+                
+                currentCreationStatus = "account creating..."
+                lastCreatedPhone = ""
+                lastCreatedUid = ""
+                lastCreatedCookies = ""
+                lastCreatedOtp = ""
+
+                fetchNumber(
+                  rangeCode = selectedRange,
+                  onSuccess = { phoneNumber ->
+                    scope.launch {
+                      lastCreatedPhone = phoneNumber
+                      createFacebookAccount(
+                        context = context,
+                        phone = phoneNumber,
+                        passwordInput = customPassword,
+                        country = selectedCountry,
+                        onSuccess = { uid, name, cookies ->
+                          scope.launch {
+                            lastCreatedUid = uid
+                            lastCreatedCookies = cookies
+                            currentCreationStatus = "create success"
+                            saveAccountToHistory(context, phoneNumber, uid, cookies, customPassword, "")
+                            lastSuccessCookies = cookies
+                            prefs.edit().putString("last_success_cookies", cookies).apply()
+                            activePhoneChecking = phoneNumber
+                            isCreatingAccount = false
+
+                            if (cookies.isNotEmpty()) {
+                              try {
+                                val cookieManager = CookieManager.getInstance()
+                                cookieManager.setAcceptCookie(true)
+                                cookieManager.removeAllCookies(null)
+                                
+                                val domains = listOf(
+                                  "https://.facebook.com",
+                                  "https://facebook.com",
+                                  "https://m.facebook.com",
+                                  "https://limited.facebook.com"
+                                )
+                                
+                                val trimmed = cookies.trim()
+                                if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                                  val jsonArray = org.json.JSONArray(trimmed)
+                                  for (i in 0 until jsonArray.length()) {
+                                    val obj = jsonArray.getJSONObject(i)
+                                    val cookieName = obj.optString("name")
+                                    val cookieValue = obj.optString("value")
+                                    val domain = obj.optString("domain", ".facebook.com")
+                                    val path = obj.optString("path", "/")
+                                    if (cookieName.isNotEmpty()) {
+                                      val cookieString = "$cookieName=$cookieValue; Domain=$domain; Path=$path"
+                                      domains.forEach { d ->
+                                        cookieManager.setCookie(d, cookieString)
+                                      }
+                                    }
+                                  }
+                                } else {
+                                  val parts = trimmed.split(";")
+                                  for (part in parts) {
+                                    val cleanPart = part.trim()
+                                    if (cleanPart.isNotEmpty() && cleanPart.contains("=")) {
+                                      domains.forEach { d ->
+                                        cookieManager.setCookie(d, "$cleanPart; Domain=.facebook.com; Path=/")
+                                      }
+                                    }
+                                  }
+                                }
+                                cookieManager.flush()
+                                if (isProxyEnabled && proxyHost.isNotBlank() && proxyPort.isNotBlank()) {
+                                  applyWebViewProxy(context, true, proxyHost, proxyPort)
+                                }
+                                webView?.loadUrl(a.b1())
+                                snackbarHostState.showSnackbar("অ্যাকাউন্ট তৈরি সফল! অটোমেটিক লগইন করা হচ্ছে...")
+                              } catch (e: Exception) {
+                                e.printStackTrace()
+                              }
+                            }
+                          }
+                        },
+                        onFailure = { errorMsg ->
+                          scope.launch {
+                            currentCreationStatus = "create failed"
+                            saveAccountToHistory(context, phoneNumber, "N/A", "N/A", customPassword, "তৈরি ব্যর্থ")
+                            isCreatingAccount = false
+                          }
+                        }
+                      )
+                    }
+                  },
+                  onFailure = { errorMsg ->
+                    scope.launch {
+                      currentCreationStatus = "create failed"
+                      isCreatingAccount = false
+                    }
+                  }
+                )
+              },
+              enabled = !isCreatingAccount && selectedRange.isNotEmpty(),
+              modifier = Modifier
+                .weight(1f)
+                .height(46.dp)
+                .background(
+                  Brush.horizontalGradient(listOf(Color(0xFF00E5FF), Color(0xFF8B5CF6), Color(0xFFEC4899))),
+                  shape = RoundedCornerShape(12.dp)
+                ),
+              colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+              shape = RoundedCornerShape(12.dp)
+            ) {
+              if (isCreatingAccount) {
+                CircularProgressIndicator(
+                  color = Color.White,
+                  modifier = Modifier.size(18.dp),
+                  strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+              }
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                  text = if (isCreatingAccount) "অ্যাকাউন্ট তৈরি হচ্ছে..." else "অ্যাকাউন্ট তৈরি করুন",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 13.sp
+                )
+              }
+            }
 
           // Creation Status / Logs
           if (currentCreationStatus.isNotEmpty()) {
-            Card(
-              colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-              ),
+            Surface(
+              color = Color(0xFF0B1322),
+              border = BorderStroke(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f)),
+              shape = RoundedCornerShape(10.dp),
               modifier = Modifier.fillMaxWidth()
             ) {
               Column(
@@ -2357,7 +2948,7 @@ fun MainScreen() {
                 Text(
                   text = currentCreationStatus,
                   style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                  color = if (currentCreationStatus == "create success") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                  color = if (currentCreationStatus == "create success") Color(0xFF10B981) else Color(0xFF00E5FF)
                 )
               }
             }
@@ -2365,10 +2956,10 @@ fun MainScreen() {
 
           // OTP received block
           if (lastCreatedPhone.isNotEmpty()) {
-            Card(
-              colors = CardDefaults.cardColors(
-                containerColor = if (lastCreatedOtp.isNotEmpty() && lastCreatedOtp != "Expired" && lastCreatedOtp != "number expired") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
-              ),
+            Surface(
+              color = Color(0xFF0B1322),
+              border = BorderStroke(1.dp, if (lastCreatedOtp.isNotEmpty() && lastCreatedOtp != "Expired" && lastCreatedOtp != "number expired") Color(0xFF10B981) else Color(0xFF00E5FF)),
+              shape = RoundedCornerShape(10.dp),
               modifier = Modifier.fillMaxWidth()
             ) {
               Column(
@@ -2382,11 +2973,11 @@ fun MainScreen() {
                     text = if (isExpired) "number expired" else "ওটিপি: $lastCreatedOtp",
                     style = MaterialTheme.typography.titleLarge.copy(
                       fontWeight = FontWeight.Bold,
-                      color = if (isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                      color = if (isExpired) Color(0xFFEF4444) else Color(0xFF00E5FF)
                     )
                   )
                 } else {
-                  CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                  CircularProgressIndicator(color = Color(0xFF00E5FF), modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                 }
               }
             }
@@ -2404,11 +2995,11 @@ fun MainScreen() {
                   scope.launch { snackbarHostState.showSnackbar("নাম্বার কপি করা হয়েছে!") }
                 },
                 contentPadding = PaddingValues(horizontal = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                modifier = Modifier.weight(1f).height(38.dp),
-                shape = RoundedCornerShape(6.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                modifier = Modifier.weight(1f).height(36.dp),
+                shape = RoundedCornerShape(8.dp)
               ) {
-                Text("নাম্বার কপি", style = MaterialTheme.typography.labelSmall)
+                Text("নাম্বার কপি", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
               }
 
               Button(
@@ -2417,24 +3008,24 @@ fun MainScreen() {
                   scope.launch { snackbarHostState.showSnackbar("UID কপি করা হয়েছে!") }
                 },
                 contentPadding = PaddingValues(horizontal = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
-                modifier = Modifier.weight(1f).height(38.dp),
-                shape = RoundedCornerShape(6.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                modifier = Modifier.weight(1f).height(36.dp),
+                shape = RoundedCornerShape(8.dp)
               ) {
-                Text("UID কপি", style = MaterialTheme.typography.labelSmall)
+                Text("UID কপি", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
               }
 
               Button(
                 onClick = {
                   clipboardManager.setText(AnnotatedString(lastCreatedCookies))
-                  scope.launch { snackbarHostState.showSnackbar("কুকি কপি করা হয়েছে!") }
+                  scope.launch { snackbarHostState.showSnackbar("কুকিজ কপি করা হয়েছে!") }
                 },
                 contentPadding = PaddingValues(horizontal = 6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                modifier = Modifier.weight(1f).height(38.dp),
-                shape = RoundedCornerShape(6.dp)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                modifier = Modifier.weight(1f).height(36.dp),
+                shape = RoundedCornerShape(8.dp)
               ) {
-                Text("কুকি কপি", style = MaterialTheme.typography.labelSmall)
+                Text("কুকিজ কপি", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
               }
             }
           }
